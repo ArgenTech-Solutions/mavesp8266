@@ -1,4 +1,4 @@
-@SET VERSION=V1.37
+@SET VERSION=V1.38
 
 del .pioenvs\esp12e\firmware.bin
 del .pioenvs\esp12e\spiffs.bin

@@ -937,12 +937,21 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
 		    return;
         }
 
-		// factory default the radio/s to (a) put them in a good state, and (b) clear any encryption key for later...
+        // factory default the radio/s to (a) put them in a good state, and (b) clear any encryption key for later...
         // disable encryption via factory default and reboot
         retval = wiz_param_helper( "&F", "" , true); 
-		delay(500);
-        if (retval != 200 ) {
-            message += "FAILED to factory-default radio/s with RT&F/AT&F on one or more of the radio/s.";
+		delay(250);
+        if (retval != 200) {        
+            message += "FAILED to factory-default on one or more radios with RT&F/AT&F.";
+		    setNoCacheHeaders();
+		    webServer.send(retval, FPSTR(kTEXTHTML), message);
+		    return;
+        }
+
+        retval = r900x_savesingle_param_and_verify_more("AT", "S21", "1", true);
+		delay(250);
+        if (retval <= 0) {
+            message += "FAILED to set local radio ATS21 to 1";
 		    setNoCacheHeaders();
 		    webServer.send(retval, FPSTR(kTEXTHTML), message);
 		    return;
@@ -1000,7 +1009,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
                     // enable encryption first but don't reboot
                     retval = wiz_param_helper( "S15", "1" , false); 
                     if (retval != 200 ) {
-                        message += "FAILED to set S15=1 on one or more of the radio/s.";
+                        message += "FAILED to set S15=1 on one or more of the radios.";
                     }
 
                     // set key with save and  reboot

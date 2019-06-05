@@ -375,7 +375,8 @@ int r900x_getparams(String filename, bool factory_reset_first) {
     Serial.write(cmd.c_str());
     Serial.flush(); // output buffer flush
     swSer.print(F("----------------------------------------------"));
-    String data = SmartSerial->expect_s("HYSTERESIS_RSSI",500); 
+    String data = SmartSerial->expect_s("HYSTERESIS_RSSI",1000); 
+    data += SmartSerial->expect_s("\r\n",100);
     while (Serial.available() ) { char t = Serial.read();  data += t; } // flush read buffer upto this point.
     swSer.print(data);
     swSer.print(F("----------------------------------------------"));
@@ -396,6 +397,7 @@ int r900x_getparams(String filename, bool factory_reset_first) {
     if ( data.length() > 300 ) { // typical file length is around 400chars 
         f = SPIFFS.open(filename, "w");
         data.trim();
+        data += "\r\n";
         f.print(data);  //actual parm data.
 
         // tack encryption key onto the end of the param file, if it exists, instead of read from remote radio
@@ -449,11 +451,11 @@ int r900x_getparams(String filename, bool factory_reset_first) {
 		} 
 	}
 	
-    if ( factory_reset_first ) { 
+    if ( 1 ) { 
 
         delay(1000); // time for local and remote to sync and RT values to populate.
 
-        swSer.println(F("ATZ/RTZ rebooting 900x due to factory_reset_first "));
+        swSer.println(F("ATZ/RTZ ensures RFD900x leaves command mode "));
         cmd = prefix+"Z\r";
         Serial.write(cmd.c_str()); // reboot radio to restore non-command mode.
         Serial.flush(); // output buffer flush
@@ -937,15 +939,8 @@ void r900x_setup(bool reflash) { // if true. it will attempt to reflash ( and fa
       f.close();
     }
 
-    // in the event we aren't reflashing, but have no parameters cached from the modem do that now
-    File p = SPIFFS.open("/r900x_params.txt", "r"); 
-
-    
-    if ( !p ) { 
-        swSer.println(F("can't see local parameters files, re-getting in 2 secs..."));
-        delay(2000);
-        r900x_getparams("/r900x_params.txt",false); 
-    } 
+    // getting fresh parameters after every bootup
+    r900x_getparams("/r900x_params.txt",false); 
 
     File p2 = SPIFFS.open("/r900x_params_remote.txt", "r");
 
@@ -1578,6 +1573,12 @@ void loop() {
             tries++;
             } while (tries < 5);
         }
+
+        SPIFFS.remove("/key.txt");
+        SPIFFS.remove("/r900x_params_remote.txt");
+        SPIFFS.remove("/r900x_params.txt");
+        SPIFFS.remove("/r900x_version_remote.txt");
+        SPIFFS.remove("/r900x_version.txt");
         
         LEDState = 1;
         digitalWrite(LEDGPIO,LEDState);
