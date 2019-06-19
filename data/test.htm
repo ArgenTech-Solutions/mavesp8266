@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html>
+<head><title>RFDesign TXMOD</title>
+<meta name="viewport" content="initial-scale=1.0">
+<meta charset="utf-8">
+<link rel="stylesheet" href="s.css">
+<style>
+*{box-sizing:border-box}
+.hd img{box-sizing:content-box}
+input{padding: 10px;font-size: 17px;border:1px solid #aaaaaa}
+#localE,#localC,#confirmtest{width:100%}
+input.invalid {background-color: #ffdddd}/* Mark input boxes that gets an error on validation: */
+.tab{display: none} /* Hide all steps by default: */
+#msgbox{width:300px;height:auto;overflow:auto;background:#fff;position:absolute;left:50%;text-align:left;margin-left:-150px;margin-top:50px;opacity:0.0;display:none}
+#msgbox button {float:right;width:100px}
+/* Make circles that indicate the steps of the form: */
+.step{height:15px;width:15px;margin:0 2px;background-color:#bbbbbb;border:none;border-radius:50%;display:inline-block;opacity:0.5}
+.step.active{opacity:1}
+.task{background-image:linear-gradient(to top right,#f44242,#f47d41);color:#fff;border:none;padding:0;margin:10px 0;font-size:17px;border-radius:5px}
+.task p{padding:10px}
+#dets,#sdets{font-style:italic}
+/* Mark the steps that are finished and valid: */
+.step.finish{background-color:#303030}
+.left{float:right;color:#fff;padding:5px 10px}
+/*#prevBtn, #nextBtn {font-size:18px;color:#000;border:#333 2px solid}*/
+</style></head>
+<body>
+<div class="hd"><img src="logo.png"/><h1><a href="/">TXMOD</a></h1></div>
+<div class="b f">
+<div id="msgbox" class="b"><h2>Error</h2><p><span id="msg_text"></span><p id="dets"></p></p><button onclick="close_window()">Close</button></div>
+<form id="regForm" action="/wiz" method="post" ><!-- onclick="return false;"> -->
+  <h2>Manufacturing check</h2>
+  
+  <!-- <font size=6>Tasks List:  &#10004;</font> -->
+  <div id=r0 class="task"><div id=t0 class="left"></div><p>Checking radio comms</p></div>
+  <div id=r1 class="task"><div id=t1 class="left"></div><p>Enabling PPM passthru</p></div>
+  <div id=r2 class="task"><div id=t2 class="left"></div><p>PPM passthru check</p></div>
+  <div id=r3 class="task"><div id=t3 class="left"></div><p>Red LED test</p></div>
+  
+    
+  <!-- One "tab" for each step in the form: -->
+  <div class="tab"><p>Power on Radios and Link them. Please ensure both radios (900x) have a solid GREEN LED, then press "Next". We will test the link to be sure.</p>
+  </div>
+  <div class="tab"><p>Enabling PPM passthru (PPMIN on local radio, PPMOUT on remote radio)</p>
+  </div>
+  <div class="tab"><p></p>
+  <p>Can you confirm the servo motor is moving?</p>
+  <p>
+  <input type="radio" name="ppm_stat" id="ppm_stat_yes" value="yes"><label for="ppm_stat_yes"> Yes</label><br>
+  <input type="radio" name="ppm_stat" id="ppm_stat_no" value="no" checked="checked"><label for="ppm_stat_no"> No</label></p>
+  </div>
+  <div class="tab"><p>Can you confim the red LED is operational?</p>
+  <p>
+  <input type="radio" name="led_stat" id="led_stat_yes" value="yes"><label for="led_stat_yes"> Yes</label><br>
+  <input type="radio" name="led_stat" id="led_stat_no" value="no" checked="checked"><label for="led_stat_no"> No</label></p>
+  </div>
+  <div style="overflow:auto;">
+    <div style="float:right;margin-top:10px">
+      <button type="button" id="prevBtn" onclick="attemptNextPrev(-1)">Previous</button>
+      <button type="button" id="nextBtn" onclick="attemptNextPrev(1)">Next</button>
+    </div>
+  </div>
+  <!-- Circles which indicates the steps of the form: -->
+  <div style="text-align:center;margin-top:40px;">
+    <span class="step"></span>
+    <span class="step"></span>
+    <span class="step"></span>
+    <span class="step"></span>
+  </div>
+</form>
+
+<script>
+var currentTab = 0; // Current tab is set to be the first tab (0)
+showTab(currentTab); // Display the crurrent tab
+
+
+function showTab(n) {
+
+
+  t = document.getElementById("t"+(currentTab-1));
+  if ( t != null ) t.innerHTML = "&#10004;";
+
+  r = document.getElementById("r"+(currentTab-1));
+  if ( r != null )  r.style.backgroundImage='linear-gradient(to top right,#41f47f,#41e2f4)'	; //green
+
+
+  // This function will display the specified tab of the form...
+  var x = document.getElementsByClassName("tab");
+  x[n].style.display = "block";
+  //... and fix the Previous/Next buttons:
+  if (n != (x.length - 1)) {
+    document.getElementById("nextBtn").innerHTML = "Next";
+  }
+  if (n == 0) {
+    document.getElementById("prevBtn").style.display = "none";
+    document.getElementById("nextBtn").innerHTML = "Start";
+  } else {
+    document.getElementById("prevBtn").style.display = "inline";
+  }
+  if (n == (x.length )) {
+	t = document.getElementById("t"+(currentTab));
+	if ( t != null ) t.innerHTML = "&#10004;";
+	r = document.getElementById("r"+(currentTab));
+	if ( r != null )  r.style.backgroundImage='linear-gradient(to top right,#41f47f,#41e2f4)';
+  }
+  //... and run a function that will display the correct step indicator:
+  fixStepIndicator(n);
+  
+  if (currentTab == 1) {
+    attemptNextPrev(1);
+  }
+
+}
+
+// user requests, then we trigger ajax event, which actually changes tab with nextPrev on success.
+var direction;
+function attemptNextPrev(n) { 
+
+
+  // Exit the function if any field in the current tab is invalid:
+  if (n == 1 && !validateForm()) return false;
+
+  direction = n; // save for after ajax so we know whih direction to move.
+
+  // make Next button say "Test in progress"...
+  if ( n == 1 ) {  // forward
+      document.getElementById("nextBtn").innerHTML = "Test in progress...";
+
+   // attempt ajax to server and this will hook the showTab to be done on return from that.
+   // saveTab = currentTab; // incase we need to stay on current tab.
+   // currentTab = currentTab + n; // try to increment/decrement
+   sendData(currentTab + n);
+  }
+  if ( n == -1 ) {  // back
+      document.getElementById("prevBtn").innerHTML = "Test in progress...";
+
+   // don't attempt to hit the server on "previous" button, just change tab immediately
+    nextPrev(direction);
+  }
+} 
+
+function unfade(element) {
+    var op = 0.1;  // initial opacity
+    element.style.display = 'block';
+    var timer = setInterval(function () {
+        if (op >= 1){
+            clearInterval(timer);
+        }
+        element.style.opacity = op;
+        element.style.filter = 'alpha(opacity=' + op * 100 + ")";
+        op += op * 0.1;
+    }, 10);
+}
+
+function fade(element) {
+    var op = 1;  // initial opacity
+    var timer = setInterval(function () {
+        if (op <= 0.1){
+            clearInterval(timer);
+            element.style.display = 'none';
+        }
+        element.style.opacity = op;
+        element.style.filter = 'alpha(opacity=' + op * 100 + ")";
+        op -= op * 0.1;
+    }, 50);
+}
+
+function alert_window(msg, det)
+{
+  document.getElementById("msg_text").innerHTML = msg;
+  document.getElementById("dets").innerHTML = det;
+  unfade(document.getElementById("msgbox"));
+}
+
+function close_window() {
+  fade(document.getElementById("msgbox"));
+}
+
+function noTabChange(n,t) {
+
+  alert_window("Sorry, something is not right with the radio comms. Please, check radio link is still up and retry. \r\n",t);
+
+  // make Next button say "working"...
+  if ( n == 1 ) {  // forward
+      document.getElementById("nextBtn").innerHTML = "Next";
+  }
+  if ( n == -1 ) {  // back
+      document.getElementById("prevBtn").innerHTML = "Previous";
+  }
+
+}
+function nextPrev(n) {
+
+  // make Next button say "working"...
+  if ( n == 1 ) {  // forward
+      document.getElementById("nextBtn").innerHTML = "Next";
+  }
+  if ( n == -1 ) {  // back
+      document.getElementById("prevBtn").innerHTML = "Previous";
+      //document.getElementById("prevBtn").style.backgroundImage='linear-gradient(to top right,#41f47f,#41e2f4)'; //green
+  }
+
+  // This function will figure out which tab to display
+  var x = document.getElementsByClassName("tab");
+
+  // Hide the current tab:
+  x[currentTab].style.display = "none";
+
+ // Increase or decrease the current tab by 1:
+  currentTab = currentTab + n; // try to increment/decrement
+
+
+  // if you have reached the end of the form...
+  if (currentTab == x.length) {
+    // ... the form gets submitted:
+    //document.getElementById("regForm").submit();
+
+      document.getElementById("nextBtn").innerHTML = "Manufacturing check completed successfully";
+      document.getElementById("prevBtn").style.display = "none";
+	  document.getElementById("nextBtn").addEventListener('click', function (e) {
+			window.location.href = '/';
+		}, false);
+      //document.getElementById("nextBtn").style.backgroundColor = "#4c9caf";//blue gray.
+
+        
+         t = document.getElementById("t"+(currentTab-1));
+          if ( t != null ) t.innerHTML = "&#10004;";
+
+          r = document.getElementById("r"+(currentTab-1));
+          if ( r != null )  r.style.backgroundImage='linear-gradient(to top right,#41f47f,#41e2f4)'	; //green
+
+
+    return false;
+  } 
+  
+  if (currentTab > x.length)
+  {
+	window.location.href = "/";
+  }
+
+  showTab(currentTab); // stay on current tab if the showTab() returns false.
+}
+
+function validateForm() {
+  // This function deals with validation of the form fields
+  var x, y, i, valid = true;
+  x = document.getElementsByClassName("tab");
+  y = x[currentTab].getElementsByTagName("input");
+  // A loop that checks every input field in the current tab:
+  for (i = 0; i < y.length; i++) {
+    // If a field is empty...
+    if (y[i].value == "") {
+      // add an "invalid" class to the field:
+      y[i].className += " invalid";
+      // and set the current valid status to false
+      valid = false;
+    }
+  }
+  // If the valid status is true, mark the step as finished and valid:
+  if (valid) {
+    f = document.getElementsByClassName("step")[currentTab];
+    if ( f != null ) f.className += " finish";
+  }
+  return valid; // return the valid status
+}
+
+function fixStepIndicator(n) {
+  // This function removes the "active" class of all steps...
+  var i, x = document.getElementsByClassName("step");
+  for (i = 0; i < x.length; i++) {
+    x[i].className = x[i].className.replace(" active", "");
+  }
+  //... and adds the "active" class on the current step:
+  if ( x[n] != null ) x[n].className += " active";
+}
+
+// Access the form element...
+var form = document.getElementById("regForm");
+
+// this is how we push form data to server
+function sendData(page) {
+
+    var XHR = new XMLHttpRequest();
+    // Bind the FormData object and the form element
+    var FD = new FormData(form);
+    FD.append("page", page);
+    // Define what happens on successful data submission
+    XHR.addEventListener("load", function(event) {
+      //alert(event.target.responseText);
+
+        var t = event.target.responseText;
+        if ( t.startsWith("SUCCESS")) {
+         nextPrev(direction);
+         return;
+        }
+        if ( t.includes("Saved")) {
+         nextPrev(direction);
+         return;
+        }
+        noTabChange(direction,t);
+        return;
+
+    });
+    // Define what happens in case of error
+    XHR.addEventListener("error", function(event) {
+      alert_window('Something went wrong while sending your request.\r\nVerify your TX Pole is operational and power-cycle it if necessary.', event.message);
+    });
+    // Set up our request
+    XHR.open("POST", "/test");
+    // The data sent is what the user provided in the form
+    XHR.send(FD);
+};
+
+
+// on-page-load setup this....
+window.addEventListener("load", function () {
+
+  // ...and take over its submit event for that too. 
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+
+    //sendData(6);
+  });
+  
+  attemptNextPrev(1);
+});
+
+</script>
+</div>
+</body>
+</html>
+
+
