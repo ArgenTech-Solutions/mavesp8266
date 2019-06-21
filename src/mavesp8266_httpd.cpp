@@ -419,8 +419,8 @@ static void handle_root()
     String device_info = "<p>Software Version: <i>" + String(vstr) + "</i><br/>";
         /*device_info += "GIT commit: <i>" + String(GIT_VERSION_STRING) + "</i><br/>";*/
         device_info += "Build date: <i>" + String(BUILD_DATE_STRING) + " " + String(BUILD_TIME_STRING) + "</i><br/>";
-        device_info += "Internal modem version: <i>" + int_rfd_sw_ver + "</i><br/>";
-        device_info += "Remote modem version: <i>" + rem_rfd_sw_ver + "</i><br/>";
+        device_info += "Internal modem version: <i style=\"font-size:10px\">" + int_rfd_sw_ver + "</i><br/>";
+        device_info += "Remote modem version: <i style=\"font-size:10px\">" + rem_rfd_sw_ver + "</i><br/>";
         device_info += "Flash-Size: <i>" + realSizeMB + "</i><br/>";
         device_info += "Up time: <i>" + up_time_str + "</i></p>";
 
