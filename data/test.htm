@@ -36,6 +36,7 @@ input.invalid {background-color: #ffdddd}/* Mark input boxes that gets an error 
   <div id=r1 class="task"><div id=t1 class="left"></div><p>Enabling PPM passthru</p></div>
   <div id=r2 class="task"><div id=t2 class="left"></div><p>PPM passthru check</p></div>
   <div id=r3 class="task"><div id=t3 class="left"></div><p>Red LED test</p></div>
+  <div id=r4 class="task"><div id=t4 class="left"></div><p>Set radio back to default</p></div>
   
     
   <!-- One "tab" for each step in the form: -->
@@ -44,15 +45,17 @@ input.invalid {background-color: #ffdddd}/* Mark input boxes that gets an error 
   <div class="tab"><p>Enabling PPM passthru (PPMIN on local radio, PPMOUT on remote radio)</p>
   </div>
   <div class="tab"><p></p>
-  <p>Can you confirm the servo motor is moving?</p>
+  <p>Can you confirm the servo motor is moving? The servo is expected to periodically rotate 120 clockwise and then anti clockwise.</p>
   <p>
   <input type="radio" name="ppm_stat" id="ppm_stat_yes" value="yes"><label for="ppm_stat_yes"> Yes</label><br>
   <input type="radio" name="ppm_stat" id="ppm_stat_no" value="no" checked="checked"><label for="ppm_stat_no"> No</label></p>
   </div>
-  <div class="tab"><p>Can you confim the red LED is operational?</p>
+  <div class="tab"><p>Can you confim the red LED is operational? The LED should be solid at this point. </p>
   <p>
   <input type="radio" name="led_stat" id="led_stat_yes" value="yes"><label for="led_stat_yes"> Yes</label><br>
   <input type="radio" name="led_stat" id="led_stat_no" value="no" checked="checked"><label for="led_stat_no"> No</label></p>
+  </div>
+  <div class="tab"><p>Press next to set the radio parameters back to default.</p>
   </div>
   <div style="overflow:auto;">
     <div style="float:right;margin-top:10px">
@@ -62,6 +65,7 @@ input.invalid {background-color: #ffdddd}/* Mark input boxes that gets an error 
   </div>
   <!-- Circles which indicates the steps of the form: -->
   <div style="text-align:center;margin-top:40px;">
+    <span class="step"></span>
     <span class="step"></span>
     <span class="step"></span>
     <span class="step"></span>
@@ -106,7 +110,7 @@ function showTab(n) {
   //... and run a function that will display the correct step indicator:
   fixStepIndicator(n);
   
-  if (currentTab == 1) {
+  if ((currentTab == 1)||(currentTab == 4)) {
     attemptNextPrev(1);
   }
 

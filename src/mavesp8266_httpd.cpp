@@ -1166,9 +1166,24 @@ void handle_test_save() // accept updated param/s via POST, save them, then disp
     if(page == 1) { // page=1 called on the 'Next' from the first page, where we actually input nothing, so we do nothing here but succeed
         //ok = true;
 
+        // activate remote 900x Network Channel (ID)  and verify  S3:NETID=
+        int retval =    r900x_savesingle_param_and_verify_more("AT", "S3", "88", true);
+        if ( retval < 0 ) {  //if remote verified, then activate local 900x Network Channel (ID)  and verify
+            // try again
+            retval =    r900x_savesingle_param_and_verify_more("AT", "S3", "88", true);
+            if (retval < 0)
+            {
+                message += "FAILED param saving to local 900x radio. ATS3->88";
+                setNoCacheHeaders();
+                swSer.println(message);
+                webServer.send(201, FPSTR(kTEXTHTML), message);
+                return;
+            }
+        }
+
         // test if the remote radio is present by trying to read a parameter from it...
         int val = r900x_readsingle_param("RT", "S0");
-        int retval = 200; // 200=success, 201 = fail.
+        retval = 200; // 200=success, 201 = fail.
         if (val >= 35) { // success
             message = "SUCCESS param reading from REMOTE 900x radio. RT S0->"+String(val);
         } else { 
@@ -1183,21 +1198,10 @@ void handle_test_save() // accept updated param/s via POST, save them, then disp
 
     // PPMIN and PPMOUT two on same page (4):
     if (page == 2) {
-        int retval = -1;
         int retval2 = -1;
 
         // ... also , side effect, set ATS21=1 but ignore all its output and don't reboot.
         r900x_savesingle_param_and_verify_more("AT", "S21", "1", false);
-
-        // activate remote 900x Network Channel (ID)  and verify  S3:NETID=
-        retval =    r900x_savesingle_param_and_verify_more("RT", "S17", "1", true);
-        if ( retval < 0 ) {  //if remote verified, then activate local 900x Network Channel (ID)  and verify
-                message += "FAILED param saving to REMOTE 900x radio. RT S17->1";
-                setNoCacheHeaders();
-                swSer.println(message);
-                webServer.send(201, FPSTR(kTEXTHTML), message);
-                return;
-        }
 
         retval2 = r900x_savesingle_param_and_verify_more("AT", "S16", "1", true);
         // if it failed, retry, because the remote already succeeded and the local should too.
@@ -1213,7 +1217,7 @@ void handle_test_save() // accept updated param/s via POST, save them, then disp
         }
        
         // success, as both retval/s are now > 0
-        if ((retval > 0 ) && (retval2 > 0 )) { 
+        if (retval2 > 0 ) { 
             message = "SUCCESS param saving to LOCAL/REMOTE 900x radio. AT/RT S16/17-> 1";
             setNoCacheHeaders();
             swSer.println(message);
@@ -1266,9 +1270,29 @@ void handle_test_save() // accept updated param/s via POST, save them, then disp
 		return;         
     } 
 
-    if((page == 4) && webServer.hasArg("confirmtest")) {
-        ok = true;
-        String w6 = webServer.arg("confirmtest").c_str();
+    if(page == 5) {
+        bool success = true;
+
+        // factory default the local radio
+        int retval = r900x_savesingle_param_and_verify_more("AT", "&F", "" , true); 
+        if ( retval < 0 ) { 
+            r900x_savesingle_param_and_verify_more("AT", "&F", "" , true);
+            if ( retval < 0 ) { 
+                success = false;
+            }
+        }
+
+        if (success) {        
+            message += "SUCCESS to factory-default local radio with AT&F.";
+		    setNoCacheHeaders();
+		    webServer.send(retval, FPSTR(kTEXTHTML), message);
+		    return;
+        } else {        
+            message += "FAILED to factory-default local radio with AT&F.";
+		    setNoCacheHeaders();
+		    webServer.send(retval, FPSTR(kTEXTHTML), message);
+		    return;
+        }
     }
 
     // the actual final form submit doesn't know its page number, but should succeed as it has all other data.
