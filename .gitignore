@@ -9,3 +9,5 @@ research
 *.bin
 
 data\.bak/
+
+.pio/build/

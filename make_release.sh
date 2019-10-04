@@ -5,7 +5,7 @@
 #edit these #defines in src/mavesp8266.h to match this .sh before running it. ( ie increment both if you increment either )
 #  #define MAVESP8266_VERSION_MAJOR    1
 #  #define MAVESP8266_VERSION_MINOR    3
-#  #define MAVESP8266_VERSION_BUILD    1
+#  #define MAVESP8266_VERSION_BUILD    12
 
 #------------------------------------------------------------------
 
@@ -18,7 +18,7 @@
 #platformio run -t buildfs
 
 # copy the target binaries to a releasable name:
-#VERSION=V1.34
+#VERSION=V1.35
 #echo cp .pioenvs/esp12e/spiffs.bin RFDTxMod-$VERSION.2m.spiffs.bin
 #cp .pioenvs/esp12e/spiffs.bin RFDTxMod-$VERSION.2m.spiffs.bin
 #echo cp .pioenvs/esp12e/firmware.bin RFDTxMod-$VERSION.2m.bin
@@ -35,7 +35,7 @@ platformio run
 platformio run -t buildfs
 
 # copy the target binaries to a releasable name:
-VERSION=V1.34
+VERSION=V1.35
 echo cp .pioenvs/esp12e/spiffs.bin RFDTxMod-$VERSION.4m.spiffs.bin
 cp .pioenvs/esp12e/spiffs.bin RFDTxMod-$VERSION.4m.spiffs.bin
 echo cp .pioenvs/esp12e/firmware.bin RFDTxMod-$VERSION.4m.bin

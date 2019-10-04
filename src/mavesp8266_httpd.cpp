@@ -931,7 +931,11 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
         int retval = wiz_param_helper( "S15", "0" , true); 
 		delay(500);
         if (retval != 200 ) {
-            message += "FAILED to set S15=0 on one or more of the radio/s.";
+            if (retval == 201) {
+                message += "FAILED to set S15=0 on remote radio.";
+            } else if (retval == 202) {
+                message += "FAILED to set S15=0 on local radio.";
+            }
 		    setNoCacheHeaders();
 		    webServer.send(retval, FPSTR(kTEXTHTML), message);
 		    return;
@@ -942,7 +946,11 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
         retval = wiz_param_helper( "&F", "" , true); 
 		delay(250);
         if (retval != 200) {        
-            message += "FAILED to factory-default on one or more radios with RT&F/AT&F.";
+            if (retval == 201) {
+                message += "FAILED to factory-default remote radio.";
+            } else if (retval == 202) {
+                message += "FAILED to factory-default local radio.";
+            }
 		    setNoCacheHeaders();
 		    webServer.send(retval, FPSTR(kTEXTHTML), message);
 		    return;

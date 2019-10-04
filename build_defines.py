@@ -8,8 +8,5 @@ builddate = currentDT.strftime("%Y-%m-%d")
 buildtime = currentDT.strftime("%H:%M:%S")
 
 
-print "-DPIO_SRC_REV=%s" % gitrevision,
-print "-DPIO_BUILD_DATE=%s" % builddate,
-print "-DPIO_BUILD_TIME=%s" % buildtime
-
+print("-DPIO_SRC_REV=%s -DPIO_BUILD_DATE=%s -DPIO_BUILD_TIME=%s" %(gitrevision.decode("utf-8"),builddate,buildtime)),
 

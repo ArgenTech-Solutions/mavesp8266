@@ -5,9 +5,6 @@ del .pioenvs\esp12e\spiffs.bin
 del firmware.bin
 del spiffs.bin
 
-@REM set us up for a 4MB build:
-copy platformio.ini.4m platformio.ini
-
 @REM build firmare.bin binary:
 platformio run
 @REM build spiffs.bin binary:
