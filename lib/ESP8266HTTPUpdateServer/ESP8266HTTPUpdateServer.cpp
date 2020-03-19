@@ -103,7 +103,7 @@ void ESP8266HTTPUpdateServer::setup(ESP8266WebServer *server, const char * path,
 
            if (upload.name == "spiffs") {
               size_t spiffsSize = ((size_t) &_SPIFFS_end - (size_t) &_SPIFFS_start);
-              if (!Update.begin(spiffsSize, U_SPIFFS)){//start with max available size
+              if (!Update.begin(spiffsSize, U_FS)){//start with max available size
                 if (_serial_output) Update.printError(Serial);
               }
             } else {

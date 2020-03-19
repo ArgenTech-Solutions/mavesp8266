@@ -40,7 +40,7 @@
 
 #include <SoftwareSerial.h>
 
-SoftwareSerial swSer(14, 16, false, 256);
+SoftwareSerial swSer;//(14, 16, false, 256);
 
 
 #include "mavesp8266.h"
@@ -170,7 +170,7 @@ void reset_interrupt(){
 // count the number of user presses, and when it exceeds 5, reset to defaults.
 volatile byte interruptCounter = 0;
 volatile long first_press = 0;
-void count_interrupts() { 
+void IRAM_ATTR count_interrupts() { 
     interruptCounter++;
     if ( first_press == 0 ) { first_press = millis(); } 
     if ( millis() - first_press > 5000) { first_press = 0; interruptCounter = 0; } 
@@ -1225,7 +1225,10 @@ String realSize;
 void setup() {
 //    bool LEDState;
     delay(1000);
+    Serial.begin(115200);
+    Serial.println("[MSG] -3");
     Parameters.begin();
+    Serial.println("[MSG] -2");    
 
 #ifdef ENABLE_SOFTDEBUG
     // software serial on unrelated pin/s for usb/serial/debug
@@ -1233,7 +1236,7 @@ void setup() {
     swSer.println(F("swSer output for SOFTDEBUG"));
 #endif
 
-   Serial.begin(57600); // needed to force baud rate of hardware to right mode for 900x bootloader reflash code.
+    Serial.println("[MSG] -1.5");    
 
    SmartSerial->begin();
 
@@ -1289,6 +1292,8 @@ void setup() {
     WiFi.softAPmacAddress(mac_ap);
     mac_ap_s = mac2String(mac_ap); // set this as a global, as we use it 'extern' in  http server to show to the user.
 
+    Serial.println("[MSG] -1");
+
     //-- MDNS
     char mdnsName[256];
     sprintf(mdnsName, "TXMOD-%s",mac_half_s.c_str());
@@ -1324,6 +1329,8 @@ void setup() {
         }
     }
 
+    Serial.println("[MSG] 0");
+
     if(Parameters.getWifiMode() == WIFI_MODE_AP){
 
         // look at the out-of-box SSID which is compiled-in as 'TXMOD' and revise it to TXMOD-xx-xx-xx-xx-xx-xx if needed.
@@ -1347,6 +1354,7 @@ void setup() {
     WiFi.setOutputPower(20.5);
 
 
+    Serial.println("[MSG] 1");
 
 
     int retries = 5;
@@ -1362,6 +1370,8 @@ void setup() {
     MDNS.addService("_http", "_tcp", 80);    
     //MDNS.addService("tcp", "tcp", 23);
 
+    Serial.println("[MSG] 2");
+
 
     #ifdef PROTOCOL_TCP
     swSer.println(F("Starting TCP Server on port 23"));
@@ -1371,6 +1381,8 @@ void setup() {
     //-- Initialize Comm Links
     DEBUG_LOG("Start WiFi Bridge\n");
     DEBUG_LOG("Local IP: %s\n", localIP.toString().c_str());
+
+    Serial.println("[MSG] 3");
 
     Parameters.setLocalIPAddress(localIP);
 
@@ -1383,11 +1395,18 @@ void setup() {
 
     // TODO , the r900x_setup() can take some time to run, is is possible that we could get the webserver responding to requests during this period?
 
+    Serial.println("[MSG] 4");
+
     //try at current/stock baud rate, 57600, first.
     r900x_setup(true); // probe for 900x and if a new firware update is needed , do it.  CAUTION may hang in retries if 900x modem is NOT attached
 
+    Serial.println("[MSG] 5");
+
+
+//swSer.println(F("setup() complete"));
 
 swSer.println(F("setup() complete"));
+    Serial.println("[MSG] 6");
 }
 
 bool gcs_veh_initd = false;

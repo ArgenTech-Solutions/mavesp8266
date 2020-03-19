@@ -35,6 +35,7 @@
  * @author Gus Grubba <mavlink@grubba.com>
  */
 
+#include <Arduino.h>
 #include "mavesp8266.h"
 #include "mavesp8266_httpd.h"
 #include "mavesp8266_parameters.h"

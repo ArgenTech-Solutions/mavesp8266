@@ -1,3 +1,6 @@
+#ifndef UPDATER_H
+#define UPDATER_H
+
 // this is an embedded copy of update.htm that still works even when theres no spiffs, so a format of the spiffs
 // doesn't knobble the entire device. Shouldn't be needed, but when updating from 2M flashed to a 4M board it is.
 // try to keep this and update.htm looking about the same.
@@ -172,3 +175,5 @@ function up_file(name, action, file) {
 </body>
 </html>
 )V0G0N";
+
+#endif
