@@ -89,7 +89,7 @@ void ESP8266HTTPUpdateServer::setup(ESP8266WebServer *server, const char * path,
         _authenticated = (_username == NULL || _password == NULL || _server->authenticate(_username, _password));
         if(!_authenticated){
           if (_serial_output)
-            //SwSer.printf("Unauthenticated Update\n");
+            //swSer.printf("Unauthenticated Update\n");
           return;
         }
 

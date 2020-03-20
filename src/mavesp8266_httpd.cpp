@@ -48,13 +48,9 @@
 #include <ESP8266mDNS.h>
 #include <ESP8266HTTPUpdateServer.h>
 
-#include <SoftwareSerial.h>
+#include "txmod_debug.h"
 
 #include "updater.h"  // const char PROGMEM UPDATER[] , allows us to embed a copy of update.htm for the /updatepage
-
-extern SoftwareSerial swSer;
-
-#define DBG_OUTPUT_PORT swSer
 
 const char PROGMEM kTEXTPLAIN[]  = "text/plain";
 const char PROGMEM kTEXTHTML[]   = "text/html";
@@ -164,8 +160,6 @@ void handle_update() {
     webServer.send(200, FPSTR(kTEXTHTML), FPSTR(kUPLOADFORM));
 }
 
-#define DEBUG_SERIAL swSer
-
 //---------------------------------------------------------------------------------
 void handle_upload() {
     webServer.sendHeader("Connection", "close");
@@ -174,7 +168,7 @@ void handle_upload() {
     if (Update.hasError()) {
         webServer.send(200, FPSTR(kTEXTPLAIN), "FAIL");
     } else {
-        DEBUG_SERIAL.println("handle_upload() Success");
+        debug_serial_println("handle_upload() Success");
         webServer.sendHeader("Location","/success.htm");      // Redirect the client to the success page
         webServer.send(303);
     }
@@ -234,7 +228,7 @@ void handle_upload_status() {
                 Update.printError(DEBUG_SERIAL);
             #endif
             success = false;
-            webServer.send(500, "text/plain", "500: could not create file");
+            webServer.send(500, "text/plain", "500: could not create file -2");
         }
         #ifdef DEBUG_SERIAL
             //DEBUG_SERIAL.setDebugOutput(false);
@@ -253,7 +247,7 @@ void handle_upload_status() {
 //---------------------------------------------------------------------------------
 void handle_getParameters()
 {
-    DBG_OUTPUT_PORT.println("handle_getParameters()");
+    debug_serial_println("handle_getParameters()");
     String message = FPSTR(kHEADER);
     message += "<p>TXMOD Parameters</p><table><tr><td width=\"240\">Name</td><td>Value</td></tr>";
     for(int i = 0; i < MavESP8266Parameters::ID_COUNT; i++) {
@@ -315,7 +309,7 @@ String getContentType(String filename) {
 // by storing all the big files ( especially javascript ) in SPIFFS as .gz, we can save a bunch of space easily.
 // but this can present either form to the user
 bool handleFileRead(String path) {
-  DBG_OUTPUT_PORT.println("handleFileRead: " + path);
+  debug_serial_println("handleFileRead: " + path);
   if (path.endsWith("/")) {
     path += "index.htm";
   }
@@ -334,7 +328,7 @@ bool handleFileRead(String path) {
 }
 
 bool handleFileRead(String path, uint minsize) {
-  DBG_OUTPUT_PORT.println("handleFileRead: " + path + " ("+String(minsize)+")");
+  debug_serial_println("handleFileRead: " + path + " ("+String(minsize)+")");
   if (path.endsWith("/")) {
     path += "index.htm";
   }
@@ -350,12 +344,12 @@ bool handleFileRead(String path, uint minsize) {
         file.close();
         return true;
     } else {
-        DBG_OUTPUT_PORT.println("file is too small");
+        debug_serial_println("file is too small");
         file.close();
         return false;
     }
   }
-  DBG_OUTPUT_PORT.println("file does not exist");
+  debug_serial_println("file does not exist");
   return false;
 }
 
@@ -715,7 +709,7 @@ extern bool tcp_passthrumode;
 //---------------------------------------------------------------------------------
 void handle_getJLog()
 {
-    DBG_OUTPUT_PORT.println("handle_getJLog()");
+    debug_serial_println("handle_getJLog()");
     uint32_t position = 0, len;
     if(webServer.hasArg(kPOSITION)) {
         position = webServer.arg(kPOSITION).toInt();
@@ -732,7 +726,7 @@ void handle_getJLog()
 //---------------------------------------------------------------------------------
 void handle_getJSysInfo()
 {
-    DBG_OUTPUT_PORT.println("handle_getJSysInfo()");
+    debug_serial_println("handle_getJSysInfo()");
     if(!flash)
         flash = ESP.getFreeSketchSpace();
     if(!paramCRC[0]) {
@@ -762,7 +756,7 @@ void handle_getJSysInfo()
 //---------------------------------------------------------------------------------
 void handle_getJSysStatus()
 {
-    DBG_OUTPUT_PORT.println("handle_getJSysStatus()");
+    debug_serial_println("handle_getJSysStatus()");
     bool reset = false;
     if(webServer.hasArg("r")) {
         reset = webServer.arg("r").toInt() != 0;
@@ -844,7 +838,7 @@ void wiz_param_saver( String ParamID, String ParamVAL ) {
 
     // saving to remote failed, advise of that        
     if ( retval == 201 ) {
-        swSer.println("B2");
+        debug_serial_println("B2");
         message = "FAIL param saving to REMOTE 900x radio. RT ";
         message += ParamID+"->"+ParamVAL;
         setNoCacheHeaders();
@@ -853,7 +847,7 @@ void wiz_param_saver( String ParamID, String ParamVAL ) {
     }
     // saving to local failed, advise of that          
     if ( retval == 202 ) {
-        swSer.println("C2");
+        debug_serial_println("C2");
         message = "FAIL param saving to LOCAL 900x radio. AT ";
         message += ParamID+"->"+ParamVAL;
         setNoCacheHeaders();
@@ -863,9 +857,9 @@ void wiz_param_saver( String ParamID, String ParamVAL ) {
     //if ( retval == 200 ) {
         message = "SUCCESS param saving to REMOTE & LOCAL 900x radio. AT ";
         message += ParamID+"->"+ParamVAL;
-        swSer.println("E2");
+        debug_serial_println("E2");
         setNoCacheHeaders();
-        swSer.println(message);
+        debug_serial_println(message);
         webServer.send(200, FPSTR(kTEXTHTML), message);
         return;
     //}
@@ -877,7 +871,7 @@ void wiz_param_saver( String ParamID, String ParamVAL ) {
 // for /wiz url
 void handle_wiz_save() // accept updated param/s via POST, save them, then display standard 'edit' form with new data.
 {
-    DBG_OUTPUT_PORT.println("handle_wiz_save()");
+    debug_serial_println("handle_wiz_save()");
     if(webServer.args() == 0) {
         // no args, just return 200/ok
         webServer.send(200, FPSTR(kTEXTHTML), "ok");
@@ -1013,7 +1007,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
                      File encfile = SPIFFS.open("/key.txt", "w");
                      encfile.println(w2);
                      encfile.close();
-                     swSer.println("Wrote Enc Key to /key.txt");
+                     debug_serial_println("Wrote Enc Key to /key.txt");
 
                     // enable encryption first but don't reboot
                     retval = wiz_param_helper( "S15", "1" , false); 
@@ -1063,7 +1057,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
         if ( retval < 0 ) {  //if remote verified, then activate local 900x Network Channel (ID)  and verify
                 message += "FAILED param saving to REMOTE 900x radio. RT S17->"+String(w4);
                 setNoCacheHeaders();
-                swSer.println(message);
+                debug_serial_println(message);
                 webServer.send(201, FPSTR(kTEXTHTML), message);
                 return;
         }
@@ -1076,7 +1070,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
         if ( retval2 < 0 ) {  //if remote verified, then activate local 900x Network Channel (ID)  and verify
                 message += "FAILED param saving to LOCAL 900x radio. AT S16->"+String(w3);
                 setNoCacheHeaders();
-                swSer.println(message);
+                debug_serial_println(message);
                 webServer.send(202, FPSTR(kTEXTHTML), message);
                 return;
         }
@@ -1085,7 +1079,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
         if ((retval > 0 ) && (retval2 > 0 )) { 
             message = "SUCCESS param saving to LOCAL/REMOTE 900x radio. AT/RT S16/17->";
             setNoCacheHeaders();
-            swSer.println(message);
+            debug_serial_println(message);
             webServer.send(200, FPSTR(kTEXTHTML), message);
             return;
         }
@@ -1108,7 +1102,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
             if ( retval < 0 ) {  //if remote verified, then activate local 900x Network Channel (ID)  and verify
                     message += "FAILED param saving to REMOTE 900x radio. RT &R";
                     setNoCacheHeaders();
-                    swSer.println(message);
+                    debug_serial_println(message);
                     webServer.send(201, FPSTR(kTEXTHTML), message);
                     return;
             }
@@ -1127,15 +1121,15 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
 
     }  
 
-    swSer.println("D");
+    debug_serial_println("D");
 
 
     if(ok) {
     message += "<font color=green>WIZARD page SETTINGS are Saved to EEPROM!</font>";
     }
-    swSer.println("E");
+    debug_serial_println("E");
     setNoCacheHeaders();
-    swSer.println(message);
+    debug_serial_println(message);
     webServer.send(200, FPSTR(kTEXTHTML), message);
     //} else {
     //    returnFail(kBADARG);
@@ -1144,7 +1138,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
 
 void handle_test_save() // accept updated param/s via POST, save them, then display standard 'edit' form with new data.
 {
-    DBG_OUTPUT_PORT.println("handle_wiz_test()");
+    debug_serial_println("handle_wiz_test()");
     if(webServer.args() == 0) {
         // no args, just return 200/ok
         webServer.send(200, FPSTR(kTEXTHTML), "ok");
@@ -1184,7 +1178,7 @@ void handle_test_save() // accept updated param/s via POST, save them, then disp
             {
                 message += "FAILED param saving to local 900x radio. ATS3->88";
                 setNoCacheHeaders();
-                swSer.println(message);
+                debug_serial_println(message);
                 webServer.send(201, FPSTR(kTEXTHTML), message);
                 return;
             }
@@ -1220,7 +1214,7 @@ void handle_test_save() // accept updated param/s via POST, save them, then disp
         if ( retval2 < 0 ) {  //if remote verified, then activate local 900x Network Channel (ID)  and verify
                 message += "FAILED param saving to LOCAL 900x radio. AT S16->1";
                 setNoCacheHeaders();
-                swSer.println(message);
+                debug_serial_println(message);
                 webServer.send(202, FPSTR(kTEXTHTML), message);
                 return;
         }
@@ -1229,14 +1223,14 @@ void handle_test_save() // accept updated param/s via POST, save them, then disp
         if (retval2 > 0 ) { 
             message = "SUCCESS param saving to LOCAL/REMOTE 900x radio. AT/RT S16/17-> 1";
             setNoCacheHeaders();
-            swSer.println(message);
+            debug_serial_println(message);
             webServer.send(200, FPSTR(kTEXTHTML), message);
             return;
         }      
 
         message = "FAILED param saving to LOCAL/REMOTE 900x radio. AT/RT S16/17-> 1";
         setNoCacheHeaders();
-        swSer.println(message);
+        debug_serial_println(message);
         webServer.send(200, FPSTR(kTEXTHTML), message);
         return;
     }
@@ -1311,15 +1305,15 @@ void handle_test_save() // accept updated param/s via POST, save them, then disp
 
     }  
 
-    swSer.println("D");
+    debug_serial_println("D");
 
 
     if(ok) {
     message += "<font color=green>WIZARD page SETTINGS are Saved to EEPROM!</font>";
     }
-    swSer.println("E");
+    debug_serial_println("E");
     setNoCacheHeaders();
-    swSer.println(message);
+    debug_serial_println(message);
     webServer.send(200, FPSTR(kTEXTHTML), message);
     //} else {
     //    returnFail(kBADARG);
@@ -1329,7 +1323,7 @@ void handle_test_save() // accept updated param/s via POST, save them, then disp
 //---------------------------------------------------------------------------------
 void handle_setParameters() // accept updated param/s via POST, save them, then display standard 'edit' form with new data.
 {
-    DBG_OUTPUT_PORT.println("handle_setParameters()");
+    debug_serial_println("handle_setParameters()");
     if(webServer.args() == 0) {
         returnFail(kBADARG);
         return;
@@ -1411,7 +1405,7 @@ void handle_setParameters() // accept updated param/s via POST, save them, then 
 //---------------------------------------------------------------------------------
 static void handle_reboot()
 {
-    DBG_OUTPUT_PORT.println("handle_reboot()");
+    debug_serial_println("handle_reboot()");
     String message = FPSTR(kHEADER);
     message += "rebooting ...</body>\n";
     setNoCacheHeaders();
@@ -1481,26 +1475,26 @@ static void handle_update_html()
     // try to render external /update.htm as-is, otherwise fallback to the embedded copy. 
     if (!handleFileRead("/update.htm", 100)) {
         webServer.send_P(200, kTEXTHTML, UPDATER, sizeof(UPDATER));
-        DBG_OUTPUT_PORT.println("rendering embedded update.htm");
+        debug_serial_println("rendering embedded update.htm");
     }
 
 }
 
 void handleFileUpload() {
-    DBG_OUTPUT_PORT.println("handleFileUpload()");
-    //DBG_OUTPUT_PORT.println("handleFileUpload 0: "); 
+    debug_serial_println("handleFileUpload()");
+    //debug_serial_println("handleFileUpload 0: "); 
   if (webServer.uri() != "/edit") {
     return;
   }
 
   HTTPUpload& upload = webServer.upload();
-  DBG_OUTPUT_PORT.print("status:"); DBG_OUTPUT_PORT.println(upload.status);
+  debug_serial_print("status:"); debug_serial_println(upload.status);
   if (upload.status == UPLOAD_FILE_START) {
     String filename = upload.filename;
     if (!filename.startsWith("/")) {
       filename = "/" + filename;
     }
-    DBG_OUTPUT_PORT.print("handleFileUpload Name: "); DBG_OUTPUT_PORT.println(filename);
+    debug_serial_print("handleFileUpload Name: "); debug_serial_println(filename);
 
     // if its a firmware .bin file we are about to upload, remove the .in.ok first
     // .. as in a small 2M SPIFFS we really don't have room for more than 1 of these
@@ -1512,33 +1506,33 @@ void handleFileUpload() {
     fsUploadFile = SPIFFS.open(filename, "w");
     filename = String();
   } else if (upload.status == UPLOAD_FILE_WRITE) {
-    DBG_OUTPUT_PORT.print("handleFileUpload Data: "); DBG_OUTPUT_PORT.println(upload.currentSize);
+    debug_serial_print("handleFileUpload Data: "); debug_serial_println(upload.currentSize);
     if (fsUploadFile) {
       fsUploadFile.write(upload.buf, upload.currentSize);
     }
   } else if (upload.status == UPLOAD_FILE_END) {
     if (fsUploadFile) {
       fsUploadFile.close();
-      DBG_OUTPUT_PORT.print("handleFileUpload Size: "); DBG_OUTPUT_PORT.println(upload.totalSize);
+      debug_serial_print("handleFileUpload Size: "); debug_serial_println(upload.totalSize);
       webServer.sendHeader("Location","/success.htm");      // Redirect the client to the success page
       webServer.send(303);
     } else { 
-      webServer.send(500, "text/plain", "500: could not create file");
+      webServer.send(500, "text/plain", "500: could not create file -1");
     }
-    //DBG_OUTPUT_PORT.print("handleFileUpload Size: "); DBG_OUTPUT_PORT.println(upload.totalSize);
+    //debug_serial_print("handleFileUpload Size: "); debug_serial_println(upload.totalSize);
   }
   //webServer.send(200, "text/plain", "");
 }
 
 // /plist
 void handle900xParamList() { 
-    DBG_OUTPUT_PORT.println("handle900xParamList()");
+    debug_serial_println("handle900xParamList()");
     File html = SPIFFS.open("/r900x_params.htm", "r");
  
     html.setTimeout(50); // don't wait long as it's a file object, not a serial port.
  
     if ( ! html ) {  // did we open this file ok, ie does it exist? 
-        swSer.println("no /r900x_params.htm exists, can't display modem settings properly.\n");
+        debug_serial_println("no /r900x_params.htm exists, can't display modem settings properly.\n");
         webServer.send(200, "text/html", "Error: r900x_params.htm is missing from spiffs."); return;
     }
 
@@ -1556,7 +1550,7 @@ extern void r900x_setup(bool refresh);
 
 // /prefresh
 void handle900xParamRefresh() { 
-    DBG_OUTPUT_PORT.println("handle900xParamRefresh()");
+    debug_serial_println("handle900xParamRefresh()");
     String type = webServer.arg("type");
 
     String factory = webServer.arg("factory");
@@ -1599,7 +1593,7 @@ void handleFileList() {
   }
 
   String path = webServer.arg("dir");
-  DBG_OUTPUT_PORT.println("handleFileList: " + path);
+  debug_serial_println("handleFileList: " + path);
   Dir dir = SPIFFS.openDir(path);
   path = String();
 
@@ -1623,12 +1617,12 @@ void handleFileList() {
 }
 
 void handleFileDelete() {
-    DBG_OUTPUT_PORT.println("handleFileDelete()");
+    debug_serial_println("handleFileDelete()");
   if (webServer.args() == 0) {
     return webServer.send(500, "text/plain", "BAD ARGS");
   }
   String path = webServer.arg(0);
-  DBG_OUTPUT_PORT.println("handleFileDelete: " + path);
+  debug_serial_println("handleFileDelete: " + path);
   if (path == "/") {
     return webServer.send(500, "text/plain", "BAD PATH");
   }
@@ -1641,12 +1635,12 @@ void handleFileDelete() {
 }
 
 void handleFileCreate() {
-    DBG_OUTPUT_PORT.println("handleFileCreate()");
+    debug_serial_println("handleFileCreate()");
   if (webServer.args() == 0) {
     return webServer.send(500, "text/plain", "BAD ARGS");
   }
   String path = webServer.arg(0);
-  DBG_OUTPUT_PORT.println("handleFileCreate: " + path);
+  debug_serial_println("handleFileCreate: " + path);
   if (path == "/") {
     return webServer.send(500, "text/plain", "BAD PATH");
   }
@@ -1664,12 +1658,12 @@ void handleFileCreate() {
 }
 
 void handle900xParamSave() { 
-    DBG_OUTPUT_PORT.println("handle900xParamSave()");
+    debug_serial_println("handle900xParamSave()");
   if (webServer.args() == 0) {
     return webServer.send(500, "text/plain", "BAD ARGS");
   }
   //String p = webServer.arg('params');
-   // DBG_OUTPUT_PORT.println("handle900xParamSave: " + p);
+   // debug_serial_println("handle900xParamSave: " + p);
 
 
   String message = "";
@@ -1709,7 +1703,7 @@ void handle900xParamSave() {
 
   webServer.send(retval, "text/plain", message);
 
-  DBG_OUTPUT_PORT.println("handle900xParamSave: " + message);
+  debug_serial_println("handle900xParamSave: " + message);
 
 
 
@@ -1811,7 +1805,7 @@ MavESP8266Httpd::begin(MavESP8266Update* updateCB_)
     webServer.begin();
 
     //MDNS.addService("http", "tcp", 80);
-    //DBG_OUTPUT_PORT.printf("HTTPUpdateServer ready! Open http://%s.local/update in your browser\n", webupdatehost);
+    //swSer.printf("HTTPUpdateServer ready! Open http://%s.local/update in your browser\n", webupdatehost);
 }
 
 //---------------------------------------------------------------------------------

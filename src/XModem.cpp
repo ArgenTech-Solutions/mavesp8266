@@ -1,11 +1,6 @@
 #include <FS.h>
 #include <XModem.h>
-
-#include <SoftwareSerial.h> 
-
-
-extern SoftwareSerial swSer;
-
+#include "txmod_debug.h"
 
 // Number of seconds until giving up hope of receiving sync packets from
 // host.
@@ -60,7 +55,7 @@ void XModem::outputByte(unsigned char inChar)
 char XModem::sync(void)
 {
 
-    swSer.println("::sync" );
+    debug_serial_println("::sync" );
   char tryNo;
   char inChar;
   // Wait a second every time until timeout.
@@ -75,12 +70,12 @@ char XModem::sync(void)
     // When timed out, leave immediately
     if (tryNo == SYNC_TIMEOUT)
       return(-1);
-    swSer.println("::sync..." );
+    debug_serial_println("::sync..." );
   } while ((inChar != 'C') && (inChar != NAK));
   // Determine which checksum algorithm to use
   // this routine also determines the packet length
 
-    swSer.println("::sync-cont" );
+    debug_serial_println("::sync-cont" );
   this->packetLen = 128;
   if (inChar == NAK)
     this->oldChecksum=1;
@@ -109,7 +104,7 @@ char XModem::sync(void)
   **/
 char XModem::waitACK(void)
 {
-    //swSer.println("::waitACK" );
+    //debug_serial_println("::waitACK" );
   char i, inChar;
   i = 0;
   do
@@ -124,7 +119,7 @@ char XModem::waitACK(void)
   
     #define LED 2
     digitalWrite(LED,!digitalRead(LED));  // toggle LED for user feedback
-    swSer.print("." ); //feedback over serial too
+    debug_serial_print("." ); //feedback over serial too
     
   return(inChar);
 }
@@ -133,7 +128,7 @@ char XModem::waitACK(void)
 int XModem::sendFile(File dataFile, char *fileName)
 {
 
-swSer.println("sendFile....." ); 
+debug_serial_println("sendFile....." ); 
 
   unsigned char finished=0;
   char inChar = 0;
@@ -181,7 +176,7 @@ swSer.println("sendFile....." );
 */
   
   if (this->sync()!=0) { 
-        swSer.println("::sync failed" ); 
+        debug_serial_println("::sync failed" ); 
     goto err;
     }
 
@@ -191,7 +186,7 @@ swSer.println("sendFile....." );
   {
     filepos = dataFile.position();
 
-       // swSer.println("\tXMODEM progress -->" ); 
+       // debug_serial_println("\tXMODEM progress -->" ); 
 
     // Sending a packet will be retried
     tryNo = 0;
@@ -260,7 +255,7 @@ swSer.println("sendFile....." );
   return 1;
 err:
   //port->println("Error sending...");
-  swSer.println("Error sending...?");
+  debug_serial_println("Error sending...?");
   digitalWrite(LED,HIGH);  // leave  LED OFF at end of upload if failed
   return -1;
 

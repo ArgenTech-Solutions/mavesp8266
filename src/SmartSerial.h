@@ -1,7 +1,6 @@
 #pragma once
 
-#include <SoftwareSerial.h> 
-extern SoftwareSerial swSer;
+#include "txmod_debug.h"
 
 class MySerial { 
 public:
@@ -21,7 +20,7 @@ public:
 
       // put_into_at_mode();
 
-      swSer.println("SmartSerial begin() done.");
+      debug_serial_println("SmartSerial begin() done.");
         
       _serial_connected = true;
   }
@@ -33,18 +32,18 @@ public:
     last_ms = millis();
     //bool found = false;
     // look for response, for max X milli seconds
-    swSer.println("s_waiting for s:"+ lookfor);
+    debug_serial_println("s_waiting for s:"+ lookfor);
     unsigned int offset = 0;
     bool finding = false; // are we part-way through a string match? 
 
-   // swSer.print("-->");
+   // debug_serial_print("-->");
     int saw_any_data = 0;
     while ((last_ms+wait_ms) > millis() )     {
         if ( Serial.available() ) {
             char c = Serial.read();
             saw_any_data++;
-           // swSer.print("Z:"); // debug only
-           // swSer.println(String(c)); // debug only
+           // debug_serial_print("Z:"); // debug only
+           // debug_serial_println(String(c)); // debug only
             return_val += c;
             if ( c == lookfor.charAt(offset) ) {  // next char we got is the next char we expected, so move forward a char and keep looking.
                 offset++;
@@ -54,19 +53,19 @@ public:
                 offset = 0;
             }
             if (( finding==true ) && ( offset >= lookfor.length() )) { // we found the entire string, return immediately, dont wait for any more serial data or timeout
-                swSer.println("<--");
-                swSer.print("\nfound s:"+ lookfor); 
-                swSer.print(" with len:"); swSer.print(offset);
-                swSer.print(" scanned:"); swSer.print(saw_any_data);
-                swSer.print(" ms:"); swSer.println(millis()-last_ms);
+                debug_serial_println("<--");
+                debug_serial_print("\nfound s:"+ lookfor); 
+                debug_serial_print(" with len:"); debug_serial_print(offset);
+                debug_serial_print(" scanned:"); debug_serial_print(saw_any_data);
+                debug_serial_print(" ms:"); debug_serial_println(millis()-last_ms);
                 return return_val;
             } 
         }
     }
-    swSer.println("!--");
-    swSer.print("\nNOT-found s:"+ lookfor); 
-    swSer.print(" scanned:"); swSer.print(saw_any_data);
-    swSer.print(" ms:"); swSer.println(millis()-last_ms);
+    debug_serial_println("!--");
+    debug_serial_print("\nNOT-found s:"+ lookfor); 
+    debug_serial_print(" scanned:"); debug_serial_print(saw_any_data);
+    debug_serial_print(" ms:"); debug_serial_println(millis()-last_ms);
     return return_val;
   }
 
@@ -75,15 +74,15 @@ public:
     last_ms = millis();
     //bool found = false;
     // look for response, for max X milli seconds
-    swSer.println("e_waiting for s:"+ lookfor);
+    debug_serial_println("e_waiting for s:"+ lookfor);
     unsigned int offset = 0;
     bool finding = false; // are we part-way through a string match? 
     int rawcount = 0;
-    swSer.print("-->");
+    debug_serial_print("-->");
     while ((last_ms+wait_ms) > millis() )     {
         if ( Serial.available() ) {
             char c = Serial.read();  rawcount++;
-            swSer.print(c); // debug only
+            debug_serial_print(c); // debug only
             if ( c == lookfor.charAt(offset) ) {  // next char we got is the next char we expected, so move forward a char and keep looking.
                 offset++;
                 finding = true;
@@ -92,17 +91,17 @@ public:
                 offset = 0;
             }
             if (( finding==true ) && ( offset >= lookfor.length() )) { // we found the entire string, return immediately, dont wait for any more serial data or timeout
-                swSer.println("<--");
-                swSer.print("\nfound s:"+ lookfor); 
-                swSer.print(" with len:"); swSer.println(offset);
-                swSer.print(" ms:"); swSer.println(millis()-last_ms);
+                debug_serial_println("<--");
+                debug_serial_print("\nfound s:"+ lookfor); 
+                debug_serial_print(" with len:"); debug_serial_println(offset);
+                debug_serial_print(" ms:"); debug_serial_println(millis()-last_ms);
                 return true;
             } 
         }
     }
-    swSer.println("<--");
-    swSer.print(" raw bytes read:"); swSer.println(rawcount);
-    swSer.print(" timeout ms:"); swSer.println(millis()-last_ms);
+    debug_serial_println("<--");
+    debug_serial_print(" raw bytes read:"); debug_serial_println(rawcount);
+    debug_serial_print(" timeout ms:"); debug_serial_println(millis()-last_ms);
     return false;
   }
 
@@ -114,9 +113,9 @@ public:
     last_ms = millis();
     //bool found = false;
     // look for response, for max X milli seconds
-    swSer.println("3_wait for s1:"+ lookfor);
-    swSer.println("3_wait for s2:"+ lookfor2);
-    swSer.println("3_wait for s3:"+ lookfor3);
+    debug_serial_println("3_wait for s1:"+ lookfor);
+    debug_serial_println("3_wait for s2:"+ lookfor2);
+    debug_serial_println("3_wait for s3:"+ lookfor3);
     unsigned int offset = 0;
     unsigned int offset2 = 0;
     unsigned int offset3 = 0;
@@ -124,11 +123,11 @@ public:
     bool finding2 = false; // are we part-way through a string match? 
     bool finding3 = false; // are we part-way through a string match? 
 
-    swSer.print("-->");
+    debug_serial_print("-->");
     while ((last_ms+wait_ms) > millis() )     {
         if ( Serial.available() ) {
             char c = Serial.read();
-            swSer.print(c); // debug only
+            debug_serial_print(c); // debug only
 
             if ( c == lookfor.charAt(offset) ) {  // next char we got is the next char we expected, so move forward a char and keep looking.
                 offset++;
@@ -155,32 +154,32 @@ public:
             }
 
             if (( finding==true ) && ( offset >= lookfor.length() )) { // we found the entire string, return immediately, dont wait for any more serial data or timeout
-                swSer.println("<1--");
-                swSer.print("\nfound s1:"+ lookfor); 
-                swSer.print(" with l1:"); swSer.print(offset);
-                swSer.print(" ms:"); swSer.println(millis()-last_ms);
+                debug_serial_println("<1--");
+                debug_serial_print("\nfound s1:"+ lookfor); 
+                debug_serial_print(" with l1:"); debug_serial_print(offset);
+                debug_serial_print(" ms:"); debug_serial_println(millis()-last_ms);
                 return 1;
             } 
 
             if (( finding2==true ) && ( offset2 >= lookfor2.length() )) { // we found the entire string, return immediately, dont wait for any more serial data or timeout
-                swSer.println("<2--");
-                swSer.print("\nfound s2:"+ lookfor2); 
-                swSer.print(" with l2:"); swSer.print(offset);
-                swSer.print(" ms:"); swSer.println(millis()-last_ms);
+                debug_serial_println("<2--");
+                debug_serial_print("\nfound s2:"+ lookfor2); 
+                debug_serial_print(" with l2:"); debug_serial_print(offset);
+                debug_serial_print(" ms:"); debug_serial_println(millis()-last_ms);
                 return 2;
             } 
 
             if (( finding3==true ) && ( offset3 >= lookfor3.length() )) { // we found the entire string, return immediately, dont wait for any more serial data or timeout
-                swSer.println("<3--");
-                swSer.print("\nfound s3:"+ lookfor3); 
-                swSer.print(" with l3:"); swSer.print(offset);
-                swSer.print(" ms:"); swSer.println(millis()-last_ms);
+                debug_serial_println("<3--");
+                debug_serial_print("\nfound s3:"+ lookfor3); 
+                debug_serial_print(" with l3:"); debug_serial_print(offset);
+                debug_serial_print(" ms:"); debug_serial_println(millis()-last_ms);
                 return 3;
             } 
         }
     }
-    swSer.println("<--");
-    swSer.print("timeout ms:"); swSer.println(millis()-last_ms);
+    debug_serial_println("<--");
+    debug_serial_print("timeout ms:"); debug_serial_println(millis()-last_ms);
     return -1;
   }
 

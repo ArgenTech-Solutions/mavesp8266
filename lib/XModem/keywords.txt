@@ -1,2 +1,0 @@
-XModem	KEYWORD1
-sendFile	KEYWORD2

@@ -5,7 +5,7 @@
   modifications to suit mavlink headers
  */
 /*
- * Copyright (c) 1995 - 2001 Kungliga Tekniska Hï¿½gskolan
+ * Copyright (c) 1995 - 2001 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden).
  * All rights reserved.
  * 
@@ -69,14 +69,14 @@ typedef struct {
 #define sigma0(x)	(ROTR(x,7)  ^ ROTR(x,18) ^ ((x)>>3))
 #define sigma1(x)	(ROTR(x,17) ^ ROTR(x,19) ^ ((x)>>10))
 
-#define m_A m->counter[0]
-#define m_B m->counter[1]
-#define m_C m->counter[2]
-#define m_D m->counter[3]
-#define m_E m->counter[4]
-#define m_F m->counter[5]
-#define m_G m->counter[6]
-#define m_H m->counter[7]
+#define A m->counter[0]
+#define B m->counter[1]
+#define C m->counter[2]
+#define D m->counter[3]
+#define E m->counter[4]
+#define F m->counter[5]
+#define G m->counter[6]
+#define H m->counter[7]
 
 static const uint32_t mavlink_sha256_constant_256[64] = {
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
@@ -101,14 +101,14 @@ MAVLINK_HELPER void mavlink_sha256_init(mavlink_sha256_ctx *m)
 {
     m->sz[0] = 0;
     m->sz[1] = 0;
-    m_A = 0x6a09e667;
-    m_B = 0xbb67ae85;
-    m_C = 0x3c6ef372;
-    m_D = 0xa54ff53a;
-    m_E = 0x510e527f;
-    m_F = 0x9b05688c;
-    m_G = 0x1f83d9ab;
-    m_H = 0x5be0cd19;
+    A = 0x6a09e667;
+    B = 0xbb67ae85;
+    C = 0x3c6ef372;
+    D = 0xa54ff53a;
+    E = 0x510e527f;
+    F = 0x9b05688c;
+    G = 0x1f83d9ab;
+    H = 0x5be0cd19;
 }
 
 static inline void mavlink_sha256_calc(mavlink_sha256_ctx *m, uint32_t *in)
@@ -117,14 +117,14 @@ static inline void mavlink_sha256_calc(mavlink_sha256_ctx *m, uint32_t *in)
     uint32_t data[64];
     int i;
 
-    AA = m_A;
-    BB = m_B;
-    CC = m_C;
-    DD = m_D;
-    EE = m_E;
-    FF = m_F;
-    GG = m_G;
-    HH = m_H;
+    AA = A;
+    BB = B;
+    CC = C;
+    DD = D;
+    EE = E;
+    FF = F;
+    GG = G;
+    HH = H;
 
     for (i = 0; i < 16; ++i)
 	data[i] = in[i];
@@ -148,14 +148,14 @@ static inline void mavlink_sha256_calc(mavlink_sha256_ctx *m, uint32_t *in)
 	AA = T1 + T2;
     }
 
-    m_A += AA;
-    m_B += BB;
-    m_C += CC;
-    m_D += DD;
-    m_E += EE;
-    m_F += FF;
-    m_G += GG;
-    m_H += HH;
+    A += AA;
+    B += BB;
+    C += CC;
+    D += DD;
+    E += EE;
+    F += FF;
+    G += GG;
+    H += HH;
 }
 
 MAVLINK_HELPER void mavlink_sha256_update(mavlink_sha256_ctx *m, const void *v, uint32_t len)
@@ -230,14 +230,14 @@ MAVLINK_HELPER void mavlink_sha256_final_48(mavlink_sha256_ctx *m, uint8_t resul
 }
 
 // prevent conflicts with users of the header
-#undef _A
-#undef _B
-#undef _C
-#undef _D
-#undef _E
-#undef _F
-#undef _G
-#undef _H
+#undef A
+#undef B
+#undef C
+#undef D
+#undef E
+#undef F
+#undef G
+#undef H
 #undef Ch
 #undef ROTR
 #undef Sigma0

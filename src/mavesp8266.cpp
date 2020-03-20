@@ -38,9 +38,7 @@
 #include "mavesp8266.h"
 #include "mavesp8266_parameters.h"
 
-#include <SoftwareSerial.h>
-
-extern SoftwareSerial swSer;
+#include "txmod_debug.h"
 
 //---------------------------------------------------------------------------------
 //-- Base Comm Link
@@ -114,7 +112,7 @@ MavESP8266Log::log(const char *format, ...) {
     Serial1.print(temp);
 #endif
 #ifdef ENABLE_SOFTDEBUG
-    swSer.print(temp);
+    debug_serial_print(temp);
 #endif
 
     if(_buffer) {

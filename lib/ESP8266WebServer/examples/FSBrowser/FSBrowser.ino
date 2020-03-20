@@ -32,7 +32,7 @@
 //FS* filesystem = &SPIFFS;
 FS* filesystem = &LittleFS;
 
-#define DBG_OUTPUT_PORT Serial
+#define swSer Serial
 
 #ifndef STASSID
 #define STASSID "your-ssid"
@@ -92,7 +92,7 @@ String getContentType(String filename) {
 }
 
 bool handleFileRead(String path) {
-  DBG_OUTPUT_PORT.println("handleFileRead: " + path);
+  debug_serial_println("handleFileRead: " + path);
   if (path.endsWith("/")) {
     path += "index.htm";
   }
@@ -120,11 +120,11 @@ void handleFileUpload() {
     if (!filename.startsWith("/")) {
       filename = "/" + filename;
     }
-    DBG_OUTPUT_PORT.print("handleFileUpload Name: "); DBG_OUTPUT_PORT.println(filename);
+    debug_serial_print("handleFileUpload Name: "); debug_serial_println(filename);
     fsUploadFile = filesystem->open(filename, "w");
     filename = String();
   } else if (upload.status == UPLOAD_FILE_WRITE) {
-    //DBG_OUTPUT_PORT.print("handleFileUpload Data: "); DBG_OUTPUT_PORT.println(upload.currentSize);
+    //debug_serial_print("handleFileUpload Data: "); debug_serial_println(upload.currentSize);
     if (fsUploadFile) {
       fsUploadFile.write(upload.buf, upload.currentSize);
     }
@@ -132,7 +132,7 @@ void handleFileUpload() {
     if (fsUploadFile) {
       fsUploadFile.close();
     }
-    DBG_OUTPUT_PORT.print("handleFileUpload Size: "); DBG_OUTPUT_PORT.println(upload.totalSize);
+    debug_serial_print("handleFileUpload Size: "); debug_serial_println(upload.totalSize);
   }
 }
 
@@ -141,7 +141,7 @@ void handleFileDelete() {
     return server.send(500, "text/plain", "BAD ARGS");
   }
   String path = server.arg(0);
-  DBG_OUTPUT_PORT.println("handleFileDelete: " + path);
+  debug_serial_println("handleFileDelete: " + path);
   if (path == "/") {
     return server.send(500, "text/plain", "BAD PATH");
   }
@@ -158,7 +158,7 @@ void handleFileCreate() {
     return server.send(500, "text/plain", "BAD ARGS");
   }
   String path = server.arg(0);
-  DBG_OUTPUT_PORT.println("handleFileCreate: " + path);
+  debug_serial_println("handleFileCreate: " + path);
   if (path == "/") {
     return server.send(500, "text/plain", "BAD PATH");
   }
@@ -182,7 +182,7 @@ void handleFileList() {
   }
 
   String path = server.arg("dir");
-  DBG_OUTPUT_PORT.println("handleFileList: " + path);
+  debug_serial_println("handleFileList: " + path);
   Dir dir = filesystem->openDir(path);
   path = String();
 
@@ -210,23 +210,23 @@ void handleFileList() {
 }
 
 void setup(void) {
-  DBG_OUTPUT_PORT.begin(115200);
-  DBG_OUTPUT_PORT.print("\n");
-  DBG_OUTPUT_PORT.setDebugOutput(true);
+  swSer.begin(115200);
+  debug_serial_print("\n");
+  swSer.setDebugOutput(true);
   filesystem->begin();
   {
     Dir dir = filesystem->openDir("/");
     while (dir.next()) {
       String fileName = dir.fileName();
       size_t fileSize = dir.fileSize();
-      DBG_OUTPUT_PORT.printf("FS File: %s, size: %s\n", fileName.c_str(), formatBytes(fileSize).c_str());
+      swSer.printf("FS File: %s, size: %s\n", fileName.c_str(), formatBytes(fileSize).c_str());
     }
-    DBG_OUTPUT_PORT.printf("\n");
+    swSer.printf("\n");
   }
 
 
   //WIFI INIT
-  DBG_OUTPUT_PORT.printf("Connecting to %s\n", ssid);
+  swSer.printf("Connecting to %s\n", ssid);
   if (String(WiFi.SSID()) != String(ssid)) {
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
@@ -234,16 +234,16 @@ void setup(void) {
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    DBG_OUTPUT_PORT.print(".");
+    debug_serial_print(".");
   }
-  DBG_OUTPUT_PORT.println("");
-  DBG_OUTPUT_PORT.print("Connected! IP address: ");
-  DBG_OUTPUT_PORT.println(WiFi.localIP());
+  debug_serial_println("");
+  debug_serial_print("Connected! IP address: ");
+  debug_serial_println(WiFi.localIP());
 
   MDNS.begin(host);
-  DBG_OUTPUT_PORT.print("Open http://");
-  DBG_OUTPUT_PORT.print(host);
-  DBG_OUTPUT_PORT.println(".local/edit to see the file browser");
+  debug_serial_print("Open http://");
+  debug_serial_print(host);
+  debug_serial_println(".local/edit to see the file browser");
 
 
   //SERVER INIT
@@ -284,7 +284,7 @@ void setup(void) {
     json = String();
   });
   server.begin();
-  DBG_OUTPUT_PORT.println("HTTP server started");
+  debug_serial_println("HTTP server started");
 
 }
 

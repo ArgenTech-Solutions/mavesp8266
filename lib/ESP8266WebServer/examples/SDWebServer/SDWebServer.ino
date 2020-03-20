@@ -34,7 +34,7 @@
 #include <SPI.h>
 #include <SD.h>
 
-#define DBG_OUTPUT_PORT Serial
+#define swSer Serial
 
 #ifndef STASSID
 #define STASSID "your-ssid"
@@ -105,7 +105,7 @@ bool loadFromSdCard(String path) {
   }
 
   if (server.streamFile(dataFile, dataType) != dataFile.size()) {
-    DBG_OUTPUT_PORT.println("Sent less data than expected!");
+    debug_serial_println("Sent less data than expected!");
   }
 
   dataFile.close();
@@ -122,17 +122,17 @@ void handleFileUpload() {
       SD.remove((char *)upload.filename.c_str());
     }
     uploadFile = SD.open(upload.filename.c_str(), FILE_WRITE);
-    DBG_OUTPUT_PORT.print("Upload: START, filename: "); DBG_OUTPUT_PORT.println(upload.filename);
+    debug_serial_print("Upload: START, filename: "); debug_serial_println(upload.filename);
   } else if (upload.status == UPLOAD_FILE_WRITE) {
     if (uploadFile) {
       uploadFile.write(upload.buf, upload.currentSize);
     }
-    DBG_OUTPUT_PORT.print("Upload: WRITE, Bytes: "); DBG_OUTPUT_PORT.println(upload.currentSize);
+    debug_serial_print("Upload: WRITE, Bytes: "); debug_serial_println(upload.currentSize);
   } else if (upload.status == UPLOAD_FILE_END) {
     if (uploadFile) {
       uploadFile.close();
     }
-    DBG_OUTPUT_PORT.print("Upload: END, Size: "); DBG_OUTPUT_PORT.println(upload.totalSize);
+    debug_serial_print("Upload: END, Size: "); debug_serial_println(upload.totalSize);
   }
 }
 
@@ -261,17 +261,17 @@ void handleNotFound() {
     message += " NAME:" + server.argName(i) + "\n VALUE:" + server.arg(i) + "\n";
   }
   server.send(404, "text/plain", message);
-  DBG_OUTPUT_PORT.print(message);
+  debug_serial_print(message);
 }
 
 void setup(void) {
-  DBG_OUTPUT_PORT.begin(115200);
-  DBG_OUTPUT_PORT.setDebugOutput(true);
-  DBG_OUTPUT_PORT.print("\n");
+  swSer.begin(115200);
+  swSer.setDebugOutput(true);
+  debug_serial_print("\n");
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  DBG_OUTPUT_PORT.print("Connecting to ");
-  DBG_OUTPUT_PORT.println(ssid);
+  debug_serial_print("Connecting to ");
+  debug_serial_println(ssid);
 
   // Wait for connection
   uint8_t i = 0;
@@ -279,21 +279,21 @@ void setup(void) {
     delay(500);
   }
   if (i == 21) {
-    DBG_OUTPUT_PORT.print("Could not connect to");
-    DBG_OUTPUT_PORT.println(ssid);
+    debug_serial_print("Could not connect to");
+    debug_serial_println(ssid);
     while (1) {
       delay(500);
     }
   }
-  DBG_OUTPUT_PORT.print("Connected! IP address: ");
-  DBG_OUTPUT_PORT.println(WiFi.localIP());
+  debug_serial_print("Connected! IP address: ");
+  debug_serial_println(WiFi.localIP());
 
   if (MDNS.begin(host)) {
     MDNS.addService("http", "tcp", 80);
-    DBG_OUTPUT_PORT.println("MDNS responder started");
-    DBG_OUTPUT_PORT.print("You can now connect to http://");
-    DBG_OUTPUT_PORT.print(host);
-    DBG_OUTPUT_PORT.println(".local");
+    debug_serial_println("MDNS responder started");
+    debug_serial_print("You can now connect to http://");
+    debug_serial_print(host);
+    debug_serial_println(".local");
   }
 
 
@@ -306,10 +306,10 @@ void setup(void) {
   server.onNotFound(handleNotFound);
 
   server.begin();
-  DBG_OUTPUT_PORT.println("HTTP server started");
+  debug_serial_println("HTTP server started");
 
   if (SD.begin(SS)) {
-    DBG_OUTPUT_PORT.println("SD Card initialized.");
+    debug_serial_println("SD Card initialized.");
     hasSD = true;
   }
 }

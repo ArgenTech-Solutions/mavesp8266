@@ -31,7 +31,7 @@ void setup() {
 	for (char ch = ' '; ch <= 'z'; ch++) {
 		swSer.write(ch);
 	}
-	swSer.println("");
+	debug_serial_println("");
 }
 
 void loop() {
