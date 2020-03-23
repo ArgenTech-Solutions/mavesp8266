@@ -8,8 +8,11 @@ v2.56.1  2020-02-26 Add web interface to allow settings/parameter changes
 v2.56.2  2020-02-27 STM32F103C / Blue Pill / Maple Mini deprecated. Tidy up Teensy3.x warnings.             
 */
 
+#include "mavesp8266.h"
+
 void frsky_setup();
 void frsky_loop();
+void frsky_handle_mavlink(mavlink_message_t * msg);
 
 //===========================================================================================
 //
@@ -106,7 +109,7 @@ const uint16_t bat2_capacity = 0;
 //#define Request_Missions_From_FC    // Un-comment if you need mission waypoint from FC - NOT NECESSARY RIGHT NOW
 
 //#define Data_Streams_Enabled        // Requests data streams from FC. Requires both rx and tx lines to FC. Rather set SRn in Mission Planner
-#define Max_Waypoints  256          // Note. This is a global RAM trade-off. If exceeded then Debug message and shut down
+#define Max_Waypoints  25          // Note. This is a global RAM trade-off. If exceeded then Debug message and shut down
 
 //=================================================================================================                             
 //                          S E L E C T   E S P   B O A R D   V A R I A N T   

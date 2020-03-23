@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-#define DEBUG_USE_SW_SERIAL 1
+//#define DEBUG_USE_SW_SERIAL 1
 
 void debug_init();
 void debug_println(String line);

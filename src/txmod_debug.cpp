@@ -5,7 +5,7 @@
 #define DEBUG_SERIAL swSer
 SoftwareSerial swSer;
 #else
-#define DEBUG_SERIAL Serial
+#define DEBUG_SERIAL Serial1
 #endif
 
 void debug_init()
@@ -14,8 +14,9 @@ void debug_init()
         swSer.begin(115200,SWSERIAL_8N1,14,16,false);
         swSer.println(F("[MSG] initd swSer output"));
     #else
-        Serial.begin(115200);
-        Serial.println(F("[MSG] initd Serial output"));
+        Serial1.begin(115200);
+        Serial1.println(F("[MSG] initd Serial output"));
+        Serial1.setDebugOutput(true);
     #endif
 }
 

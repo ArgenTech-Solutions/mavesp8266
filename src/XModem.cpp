@@ -125,7 +125,7 @@ char XModem::waitACK(void)
 }
 
 
-int XModem::sendFile(File dataFile, char *fileName)
+int XModem::sendFile(File dataFile)
 {
 
 debug_serial_println("sendFile....." ); 
@@ -137,43 +137,6 @@ debug_serial_println("sendFile....." );
 
   // Rewind data file before sending the file..
   dataFile.seek(0);
-
-  // When doing YModem, send block 0 to inform host about 
-  // file name to be received
-/*
-  if (this->mode == ModeYModem)
-  {
-    if (this->sync()!=0)
-      goto err;
-    
-    // Send header for virtual block 0 (file name)
-    port->write(SOH);
-    port->write((uint8_t)0);
-    port->write(0xFF);
-
-    for (i=0; i<strlen(fileName); i++)
-    {
-      this->outputByte(fileName[i]);
-    }
-    for (; i<128; i++)
-    {
-      this->outputByte((uint8_t)0x00);
-    }
-    if (oldChecksum)
-      port->write((char)255-checksumBuf);
-    else
-    {
-      port->write((char) (crcBuf >>8));
-      port->write((char) (crcBuf & 0xFF));
-    }
-    // Discard ACK/NAK/CAN, in case
-    // we communicate to an XMODEM-1k client
-    // which might not know about the 0 block.
-    waitACK();
-  } else
-  {
-  }
-*/
   
   if (this->sync()!=0) { 
         debug_serial_println("::sync failed" ); 

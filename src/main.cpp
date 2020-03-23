@@ -54,7 +54,12 @@
 
 // LED is on GPIO2, see also XModem.cpp, line 125
 //#define GPIO02  2
+#ifdef DEBUG_USE_SW_SERIAL
 #define LEDGPIO 2
+#else
+#define LEDGPIO 16
+#endif
+
 // txmod reset button 
 #define RESETGPIO 12
 
@@ -1116,7 +1121,7 @@ void r900x_setup(bool reflash) { // if true. it will attempt to reflash ( and fa
 
                 if ( reflash ) { 
                     debug_serial_println(F("\t\tXMODEM SENDFILE BEGAN\n"));
-                    int xok = xmodem.sendFile(f, (char *)"unused");
+                    int xok = xmodem.sendFile(f);
 
                     if (xok == -1) {
                         debug_serial_println(F("ERROR! gave up on xmodem-reflash, sorry."));  
@@ -1239,6 +1244,7 @@ String half_mac2String(byte ar[]){
 String mac_s;
 String mac_ap_s;
 String realSize;
+bool gcs_veh_initd = false;
 
 //---------------------------------------------------------------------------------
 //-- Set things up
@@ -1393,40 +1399,38 @@ void setup() {
     //try at current/stock baud rate, 57600, first.
     r900x_setup(true); // probe for 900x and if a new firware update is needed , do it.  CAUTION may hang in retries if 900x modem is NOT attached
 
-    //frsky_setup();
+    frsky_setup();
+    
+    if (!gcs_veh_initd) { 
+
+        //Parameters.setLocalIPAddress(localIP);
+        IPAddress gcs_ip(localIP);
+        //-- I'm getting bogus IP from the DHCP server. Broadcasting for now.
+        gcs_ip[3] = 255;
+        debug_serial_println(F("setting UDP client IP!")); 
+
+        // twiddle LEDs here so user sees they are connected
+        for ( int l = 0 ; l < 10; l++ ) { 
+            LEDState = !LEDState;
+            digitalWrite(LEDGPIO,LEDState);
+            delay(100);
+        }
+        
+        GCS.begin(&Vehicle, gcs_ip);
+        debug_serial_println(F("GCS.begin finished")); 
+        Vehicle.begin(&GCS);
+        debug_serial_println(F("Vehicle.begin finished")); 
+        gcs_veh_initd = true;    
+    }
 
     debug_serial_println(F("setup() complete"));
 }
-
-bool gcs_veh_initd = false;
 
 void client_check() { 
     uint8 x = wifi_softap_get_station_num();
     if ( client_count != x ) { 
         client_count = x;
-        DEBUG_LOG("Got %d client(s)\n", client_count); 
-
-        if (client_count != 0 ) { 
-
-           //Parameters.setLocalIPAddress(localIP);
-            IPAddress gcs_ip(localIP);
-            //-- I'm getting bogus IP from the DHCP server. Broadcasting for now.
-            gcs_ip[3] = 255;
-            debug_serial_println(F("setting UDP client IP!")); 
-
-            // twiddle LEDs here so user sees they are connected
-            for ( int l = 0 ; l < 10; l++ ) { 
-                LEDState = !LEDState;
-                digitalWrite(LEDGPIO,LEDState);
-                delay(100);
-            }
-            
-            GCS.begin(&Vehicle, gcs_ip);
-            debug_serial_println(F("GCS.begin finished")); 
-            Vehicle.begin(&GCS);
-            debug_serial_println(F("Vehicle.begin finished")); 
-            gcs_veh_initd = true;    
-        } 
+        DEBUG_LOG("Got %d client(s)\n", client_count);  
     } 
 } 
 
@@ -1599,5 +1603,5 @@ void loop() {
         ESP.reset();
     }
 
-    //frsky_loop();
+    frsky_loop();
 }
