@@ -67,7 +67,7 @@ class MavESP8266GCS;
 // maybe like this: date +"%y %m%d %H%I"
 #define MAVESP8266_VERSION_MAJOR    1
 #define MAVESP8266_VERSION_MINOR    3
-#define MAVESP8266_VERSION_BUILD    16
+#define MAVESP8266_VERSION_BUILD    163
 #define MAVESP8266_VERSION          ((MAVESP8266_VERSION_MAJOR << 24) & 0xFF00000) | ((MAVESP8266_VERSION_MINOR << 16) & 0x00FF0000) | (MAVESP8266_VERSION_BUILD & 0xFFFF)
 
 
@@ -89,7 +89,7 @@ class MavESP8266GCS;
 //#define ENABLE_DEBUG true
 
 //  Debug sent out to softserial configured to use GPIO14 and GPIO16
-#define ENABLE_SOFTDEBUG true
+//#define ENABLE_SOFTDEBUG true
 
 
 #ifdef ENABLE_DEBUG

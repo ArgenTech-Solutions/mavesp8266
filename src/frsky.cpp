@@ -150,19 +150,14 @@
 
 SoftwareSerial frSerial;//(-1, Fr_txPin, true, 256);
 
-String    pgm_path;
-String    pgm_name;
-
-//uint8_t   MavLedState = LOW; 
-//uint8_t   BufLedState = LOW; 
- 
 uint32_t  hb_count=0;
 uint32_t  sens_buf_full_count = 0;
 
-bool      ap_bat_paramsReq = false;
+#if (Battery_mAh_Source == 1)  // Get battery capacity from the FC
+  bool      ap_bat_paramsReq = false;
+  bool      parm_msg_shown = false;
+#endif
 bool      ap_bat_paramsRead=false; 
-bool      parm_msg_shown = false;
-bool      ap_paramsList=false;
 uint8_t   app_count=0;
 
 bool      homGood = false;      
@@ -172,11 +167,7 @@ bool      rssi35 = false;
 bool      rssi65 = false;
 bool      rssi109 = false;
 
-bool      wifiSuGood = false;
-bool      wifiSuDone = false;
 bool      timeGood = false;
-bool      ftGetBaud = true;
-uint8_t   sdStatus = 0; // 0=no reader, 1=reader found, 2=SD found, 3=open for append 4 = open for read, 9=failed
 
 uint32_t  hb_millis=0;
 uint32_t  sport_millis=0;  
@@ -212,18 +203,11 @@ struct Loc2D {
   float     lon;
   };
   
- Loc2D WP[Max_Waypoints]; 
 
 
 //=========================================== M A V L I N K =============================================    
 
 mavlink_message_t   R2Gmsg, G2Fmsg;
-
-//uint8_t           FCbuf[MAVLINK_MAX_PACKET_LEN];
-//uint8_t           GCSbuf[MAVLINK_MAX_PACKET_LEN]; 
-
-uint8_t             FCbuf[300];
-uint8_t             GCSbuf[300]; 
 
 uint16_t            len;
 
@@ -650,7 +634,6 @@ uint32_t fr_rssi;
 
 // Forward declarations
 void FrSkySPort_Init(void);
-void main_loop();
 bool Read_FC_To_RingBuffer();
 void PackSensorTable(uint16_t, uint8_t);
 void RB_To_Decode_To_SPort_and_GCS();
@@ -661,12 +644,6 @@ void RequestMissionList();
 void MavToRingBuffer(mavlink_message_t * msg);
 void Send_From_RingBuf_To_GCS();
 void checkLinkErrors(mavlink_message_t*); 
-bool Read_Bluetooth(mavlink_message_t*);
-bool Send_Bluetooth(mavlink_message_t*);
-bool Read_TCP(mavlink_message_t*);
-bool Read_UDP(mavlink_message_t*);
-bool Send_TCP(mavlink_message_t*);
-bool Send_UDP(mavlink_message_t*);
 void DecodeOneMavFrame();
 void Emulate_ReadSPort();
 void MarkHome();
@@ -678,8 +655,6 @@ void Accum_mAh1(uint32_t);
 void Accum_mAh2(uint32_t);
 void Accum_Volts1(uint32_t); 
 void Accum_Volts2(uint32_t); 
-uint32_t GetConsistent(uint8_t);
-uint32_t SenseUart(uint8_t);
 void ReadSPort(void);
 void FrSkySPort_Inject_Packet();
 void FrSkySPort_SendByte(uint8_t, bool);
@@ -713,7 +688,6 @@ void BlinkMavLed(uint32_t);
 void DisplayRemoteIP();
 bool Leap_yr(uint16_t);
 void WebServerSetup();
-void FrSkySPort_Init();     
 void PackSensorTable(uint16_t, uint8_t);
 void Send_FC_Heartbeat();
 void RequestMissionList();
@@ -721,7 +695,6 @@ void MavToRingBuffer();
 void DecodeOneMavFrame();
 void Emulate_ReadSPort();
 void ReadSPort(void);
-void RecoverSettingsFromFlash();
 void DisplayByte(byte);
 uint8_t PX4FlightModeNum(uint8_t, uint8_t);
 
@@ -735,37 +708,37 @@ uint8_t PX4FlightModeNum(uint8_t, uint8_t);
 //=================================================================================================
 void frsky_setup()  {
 
-  debug_print("Target Board is ");
+  debug_serial_print("Target Board is ");
    
   #if (defined ESP8266) 
-    debug_print("ESP8266 / Variant is ");
+    debug_serial_print("ESP8266 / Variant is ");
     #if (ESP8266_Variant == 2)
-      debug_println("ESP-F - RFD900X TX-MOD");
+      debug_serial_println("ESP-F - RFD900X TX-MOD");
     #endif       
   #endif
 
-  debug_println("Ground Mode");
+  debug_serial_println("Ground Mode");
 
   #if (Battery_mAh_Source == 1)  
-    debug_println("Battery_mAh_Source = 1 - Get battery capacities from the FC");
+    debug_serial_println("Battery_mAh_Source = 1 - Get battery capacities from the FC");
   #elif (Battery_mAh_Source == 2)
-    debug_println("Battery_mAh_Source = 2 - Define battery capacities in this firmware");  
+    debug_serial_println("Battery_mAh_Source = 2 - Define battery capacities in this firmware");  
   #elif (Battery_mAh_Source == 3)
-    debug_println("Battery_mAh_Source = 3 - Define battery capacities in the LUA script");
+    debug_serial_println("Battery_mAh_Source = 3 - Define battery capacities in the LUA script");
   #else
     #error You must define at least one Battery_mAh_Source. Please correct.
   #endif            
 
   #if (SPort_Serial == 1) 
-    debug_println("Using Serial_1 for S.Port");     
+    debug_serial_println("Using Serial_1 for S.Port");     
   #else
-    debug_println("Using Serial_3 for S.Port");
+    debug_serial_println("Using Serial_3 for S.Port");
   #endif  
   
   #ifndef RSSI_Override
-    debug_println("RSSI Automatic Select");
+    debug_serial_println("RSSI Automatic Select");
   #else
-    debug_println("RSSI Override for testing = 70%");
+    debug_serial_println("RSSI Override for testing = 70%");
   #endif
 
 //=================================================================================================   
@@ -799,7 +772,7 @@ void frsky_loop() {
   
   /*if (!Read_FC_To_RingBuffer()) {  //  check for SD eof
     if (sdStatus == 5) {
-      debug_println("End of SD file");
+      debug_serial_println("End of SD file");
       sdStatus = 0;  // closed after reading   
     }
   }*/
@@ -840,7 +813,7 @@ void frsky_loop() {
   if(mavGood) {                      // If we have a link, request data streams from MavLink every 5s
     if(millis()-rds_millis > 5000) {
     rds_millis=millis();
-    debug_println("Requesting data streams"); 
+    debug_serial_println("Requesting data streams"); 
     RequestDataStreams();   // must have Teensy Tx connected to Taranis/FC rx  (When SRx not enumerated)
     }
   }
@@ -849,18 +822,18 @@ void frsky_loop() {
   /*if(millis()- fchb_millis > 2000) {  // MavToPass heartbeat to FC every 2 seconds
     fchb_millis=millis();
     #if defined Mav_Debug_MavToPass_Heartbeat
-      debug_println("Sending MavToPass hb to FC");  
+      debug_serial_println("Sending MavToPass hb to FC");  
     #endif    
    Send_FC_Heartbeat();   // must have MavToPass tx pin connected to Telem radio rx pin  
   }*/
 
   #if defined Request_Missions_From_FC || defined Request_Mission_Count_From_FC
-  /*if (mavGood) {
+  if (mavGood) {
     if (!ap_ms_list_req) {
       RequestMissionList();  //  #43
       ap_ms_list_req = true;
     }
-  }*/
+  }
   #endif
 
   #if (Battery_mAh_Source == 1)  // Get battery capacity from the FC
@@ -871,12 +844,12 @@ void frsky_loop() {
       Param_Request_Read(356);    
       Param_Request_Read(364);    // Request Bat2 capacity
       Param_Request_Read(364);    
-      debug_println("Battery capacities requested");
+      debug_serial_println("Battery capacities requested");
       ap_bat_paramsReq = true;
     } else {
       if (ap_bat_paramsRead &&  (!parm_msg_shown)) {
         parm_msg_shown = true; 
-        debug_println("Battery params successfully read"); 
+        debug_serial_println("Battery params successfully read"); 
       }
     } 
   }
@@ -888,7 +861,7 @@ void frsky_loop() {
 //================================================================================================= 
 
 void frsky_handle_mavlink(mavlink_message_t * msg) {
-    debug_println("mav msg rcvd: "+String(msg->msgid));
+    debug_serial_println("mav msg rcvd: "+String(msg->msgid));
     MavToRingBuffer(msg);
 }
 
@@ -900,7 +873,7 @@ bool Read_FC_To_RingBuffer() {
       uint16_t c = mvSerialFC.read();
       if(mavlink_parse_char(MAVLINK_COMM_0, c, &F2Rmsg, &status)) {  // Read a frame
          #ifdef  Debug_FC_Down
-           debug_println("Serial passed to RB from FC side :");
+           debug_serial_println("Serial passed to RB from FC side :");
            PrintMavBuffer(&F2Rmsg);
         #endif              
         MavToRingBuffer();       
@@ -919,7 +892,7 @@ void RB_To_Decode_To_SPort_and_GCS() {
     #if defined Mav_Debug_RingBuff
   //   debug_print("Mavlink ring buffer R2Gmsg: ");  
   //    PrintMavBuffer(&R2Gmsg);
-      debug_print("Ring queue = "); debug_println(String(MavRingBuff.size()));
+      debug_serial_print("Ring queue = "); debug_serial_println(String(MavRingBuff.size()));
     #endif
    
     DecodeOneMavFrame();  // Decode a Mavlink frame from the ring buffer 
@@ -939,7 +912,7 @@ void MavToRingBuffer(mavlink_message_t * F2Rmsg) {
 
       // MAIN Queue
       if (MavRingBuff.isFull()) {
-        debug_println("MavRingBuff full. Dropping records!");
+        debug_serial_println("MavRingBuff full. Dropping records!");
       }
        else {
         MavRingBuff.push(*F2Rmsg);
@@ -986,13 +959,13 @@ void DecodeOneMavFrame() {
           hb_count++; 
           
           if(!mavGood) {
-            //debug_print("hb_count=");
-            //debug_print(hb_count);
-            //debug_println("");
+            //debug_serial_print("hb_count=");
+            //debug_serial_print(hb_count);
+            //debug_serial_println("");
 
             if(hb_count >= 3) {        // If  3 heartbeats from MavLink then we are connected
               mavGood=true;
-              debug_println("mavgood=true");
+              debug_serial_println("mavgood=true");
               }
             }
 
@@ -1002,21 +975,21 @@ void DecodeOneMavFrame() {
 
 
           #if defined Mav_Debug_All || defined Mav_Debug_FC_Heartbeat
-            debug_print("Mavlink from FC #0 Heartbeat: ");           
-            debug_print("ap_type="); debug_print(ap_type);   
-            debug_print("  ap_autopilot="); debug_print(ap_autopilot); 
-            debug_print("  ap_base_mode="); debug_print(ap_base_mode); 
-            debug_print(" ap_custom_mode="); debug_print(ap_custom_mode);
-            debug_print("  ap_system_status="); debug_print(ap_system_status); 
-            debug_print("  ap_mavlink_version="); debug_print(ap_mavlink_version);   
+            debug_serial_print("Mavlink from FC #0 Heartbeat: ");           
+            debug_serial_print("ap_type="); debug_serial_print(ap_type);   
+            debug_serial_print("  ap_autopilot="); debug_serial_print(ap_autopilot); 
+            debug_serial_print("  ap_base_mode="); debug_serial_print(ap_base_mode); 
+            debug_serial_print(" ap_custom_mode="); debug_serial_print(ap_custom_mode);
+            debug_serial_print("  ap_system_status="); debug_serial_print(ap_system_status); 
+            debug_serial_print("  ap_mavlink_version="); debug_serial_print(ap_mavlink_version);   
 
             if (px4_flight_stack) {         
-              debug_print(" px4_main_mode="); debug_print(px4_main_mode); 
-              debug_print(" px4_sub_mode="); debug_print(px4_sub_mode);  
-              debug_print(" ");debug_print(PX4FlightModeName(px4_main_mode, px4_sub_mode));  
+              debug_serial_print(" px4_main_mode="); debug_serial_print(px4_main_mode); 
+              debug_serial_print(" px4_sub_mode="); debug_serial_print(px4_sub_mode);  
+              debug_serial_print(" ");debug_serial_print(PX4FlightModeName(px4_main_mode, px4_sub_mode));  
            }
             
-            debug_println();
+            debug_serial_println();
           #endif
 
           
@@ -1035,19 +1008,19 @@ void DecodeOneMavFrame() {
             else ap_ccell_count1= 0;
           
           #if defined Mav_Debug_All || defined Mav_Debug_SysStatus || defined Debug_Batteries
-            debug_print("Mavlink from FC #1 Sys_status: ");     
-            debug_print(" Sensor health=");
-            debug_print(ap_onboard_control_sensors_health);   // 32b bitwise 0: error, 1: healthy.
-            debug_print(" Bat volts=");
-            debug_print((float)ap_voltage_battery1/ 1000, 3);   // now V
-            debug_print("  Bat amps=");
-            debug_print((float)ap_current_battery1/ 100, 1);   // now A
+            debug_serial_print("Mavlink from FC #1 Sys_status: ");     
+            debug_serial_print(" Sensor health=");
+            debug_serial_print(ap_onboard_control_sensors_health);   // 32b bitwise 0: error, 1: healthy.
+            debug_serial_print(" Bat volts=");
+            debug_serial_print((float)ap_voltage_battery1/ 1000, 3);   // now V
+            debug_serial_print("  Bat amps=");
+            debug_serial_print((float)ap_current_battery1/ 100, 1);   // now A
               
-            debug_print("  mAh="); debug_print(bat1.mAh, 6);    
-            debug_print("  Total mAh="); debug_print(bat1.tot_mAh, 3);  // Consumed so far, calculated in Average module
+            debug_serial_print("  mAh="); debug_serial_print(bat1.mAh, 6);    
+            debug_serial_print("  Total mAh="); debug_serial_print(bat1.tot_mAh, 3);  // Consumed so far, calculated in Average module
          
-            debug_print("  Bat1 cell count= "); 
-            debug_println(ap_ccell_count1);
+            debug_serial_print("  Bat1 cell count= "); 
+            debug_serial_println(ap_ccell_count1);
           #endif
 
           #if defined Send_Sensor_Health_Messages
@@ -1138,9 +1111,9 @@ void DecodeOneMavFrame() {
             timeGood = true;
           }
           #if defined Mav_Debug_All || defined Mav_Debug_System_Time
-            debug_print("Mavlink from FC #2 System_Time: ");        
-            debug_print(" Unix secs="); debug_print((float)(ap_time_unix_usec/1E6), 6);  
-            debug_print("  Boot secs="); debug_println((float)(ap_time_boot_ms/1E3), 0);   
+            debug_serial_print("Mavlink from FC #2 System_Time: ");        
+            debug_serial_print(" Unix secs="); debug_serial_print((float)(ap_time_unix_usec/1E6), 6);  
+            debug_serial_print("  Boot secs="); debug_serial_println((float)(ap_time_boot_ms/1E3), 0);   
           #endif
           break;                   
         case MAVLINK_MSG_ID_PARAM_REQUEST_READ:   // #20 - OUTGOING TO UAV
@@ -1160,32 +1133,32 @@ void DecodeOneMavFrame() {
             case 356:         // Bat1 Capacity
               ap_bat1_capacity = ap_param_value;
               #if defined Mav_Debug_All || defined Debug_Batteries
-                debug_print("Mavlink from FC #22 Param_Value: ");
-                debug_print("bat1 capacity=");
-                debug_println(ap_bat1_capacity);
+                debug_serial_print("Mavlink from FC #22 Param_Value: ");
+                debug_serial_print("bat1 capacity=");
+                debug_serial_println(ap_bat1_capacity);
               #endif
               break;
             case 364:         // Bat2 Capacity
               ap_bat2_capacity = ap_param_value;
               ap_bat_paramsRead = true;
               #if defined Mav_Debug_All || defined Debug_Batteries
-                debug_print("Mavlink from FC #22 Param_Value: ");
-                debug_print("bat2 capacity=");
-                debug_println(ap_bat2_capacity);
+                debug_serial_print("Mavlink from FC #22 Param_Value: ");
+                debug_serial_print("bat2 capacity=");
+                debug_serial_println(ap_bat2_capacity);
               #endif             
               break;
           } 
              
           #if defined Mav_Debug_All || defined Mav_Debug_Params || defined Mav_List_Params
-            debug_print("Mavlink from FC #22 Param_Value: ");
-            debug_print("param_id=");
-            debug_print(ap_param_id);
-            debug_print("  param_value=");
-            debug_print(ap_param_value, 4);
-            debug_print("  param_count=");
-            debug_print(ap_param_count);
-            debug_print("  param_index=");
-            debug_println(ap_param_index);
+            debug_serial_print("Mavlink from FC #22 Param_Value: ");
+            debug_serial_print("param_id=");
+            debug_serial_print(ap_param_id);
+            debug_serial_print("  param_value=");
+            debug_serial_print(ap_param_value, 4);
+            debug_serial_print("  param_count=");
+            debug_serial_print(ap_param_count);
+            debug_serial_print("  param_index=");
+            debug_serial_println(ap_param_index);
           #endif       
           break;    
         case MAVLINK_MSG_ID_GPS_RAW_INT:          // #24
@@ -1213,34 +1186,34 @@ void DecodeOneMavFrame() {
            
           }
           #if defined Mav_Debug_All || defined Mav_Debug_GPS_Raw
-            debug_print("Mavlink from FC #24 GPS_RAW_INT: ");  
-            debug_print("ap_fixtype="); debug_print(ap_fixtype);
-            if (ap_fixtype==0) debug_print(" No GPS");
-              else if (ap_fixtype==1) debug_print(" No Fix");
-              else if (ap_fixtype==2) debug_print(" 2D Fix");
-              else if (ap_fixtype==3) debug_print(" 3D Fix");
-              else if (ap_fixtype==4) debug_print(" DGPS/SBAS aided");
-              else if (ap_fixtype==5) debug_print(" RTK Float");
-              else if (ap_fixtype==6) debug_print(" RTK Fixed");
-              else if (ap_fixtype==7) debug_print(" Static fixed");
-              else if (ap_fixtype==8) debug_print(" PPP");
-              else debug_print(" Unknown");
+            debug_serial_print("Mavlink from FC #24 GPS_RAW_INT: ");  
+            debug_serial_print("ap_fixtype="); debug_serial_print(ap_fixtype);
+            if (ap_fixtype==0) debug_serial_print(" No GPS");
+              else if (ap_fixtype==1) debug_serial_print(" No Fix");
+              else if (ap_fixtype==2) debug_serial_print(" 2D Fix");
+              else if (ap_fixtype==3) debug_serial_print(" 3D Fix");
+              else if (ap_fixtype==4) debug_serial_print(" DGPS/SBAS aided");
+              else if (ap_fixtype==5) debug_serial_print(" RTK Float");
+              else if (ap_fixtype==6) debug_serial_print(" RTK Fixed");
+              else if (ap_fixtype==7) debug_serial_print(" Static fixed");
+              else if (ap_fixtype==8) debug_serial_print(" PPP");
+              else debug_serial_print(" Unknown");
 
-            debug_print("  sats visible="); debug_print(ap_sat_visible);
-            debug_print("  latitude="); debug_print((float)(ap_lat24)/1E7, 7);
-            debug_print("  longitude="); debug_print((float)(ap_lon24)/1E7, 7);
-            debug_print("  gps alt amsl="); debug_print((float)(ap_amsl24)/1E3, 1);
-            debug_print("  eph (hdop)="); debug_print((float)ap_eph);                 // HDOP
-            debug_print("  epv (vdop)="); debug_print((float)ap_epv);
-            debug_print("  vel="); debug_print((float)ap_vel / 100, 3);           // GPS ground speed (m/s)
-            debug_print("  cog="); debug_print((float)ap_cog / 100, 1);           // Course over ground in degrees
+            debug_serial_print("  sats visible="); debug_serial_print(ap_sat_visible);
+            debug_serial_print("  latitude="); debug_serial_print((float)(ap_lat24)/1E7, 7);
+            debug_serial_print("  longitude="); debug_serial_print((float)(ap_lon24)/1E7, 7);
+            debug_serial_print("  gps alt amsl="); debug_serial_print((float)(ap_amsl24)/1E3, 1);
+            debug_serial_print("  eph (hdop)="); debug_serial_print((float)ap_eph);                 // HDOP
+            debug_serial_print("  epv (vdop)="); debug_serial_print((float)ap_epv);
+            debug_serial_print("  vel="); debug_serial_print((float)ap_vel / 100, 3);           // GPS ground speed (m/s)
+            debug_serial_print("  cog="); debug_serial_print((float)ap_cog / 100, 1);           // Course over ground in degrees
             //  mav2
-            debug_print("  alt_ellipsoid)="); debug_print(ap_alt_ellipsoid / 1000, 2);      // alt_ellipsoid in mm
-            debug_print("  h_acc="); debug_print(ap_h_acc);                       // Position uncertainty in mm. Positive for up.
-            debug_print("  v_acc="); debug_print(ap_v_acc);                       // Altitude uncertainty in mm. Positive for up.
-            debug_print("  ap_vel_acc="); debug_print(ap_vel_acc);                // Speed uncertainty. Positive for up.
-            debug_print("  ap_hdg_acc="); debug_print(ap_hdg_acc);                // degE5   Heading / track uncertainty 
-            debug_println();
+            debug_serial_print("  alt_ellipsoid)="); debug_serial_print(ap_alt_ellipsoid / 1000, 2);      // alt_ellipsoid in mm
+            debug_serial_print("  h_acc="); debug_serial_print(ap_h_acc);                       // Position uncertainty in mm. Positive for up.
+            debug_serial_print("  v_acc="); debug_serial_print(ap_v_acc);                       // Altitude uncertainty in mm. Positive for up.
+            debug_serial_print("  ap_vel_acc="); debug_serial_print(ap_vel_acc);                // Speed uncertainty. Positive for up.
+            debug_serial_print("  ap_hdg_acc="); debug_serial_print(ap_hdg_acc);                // degE5   Heading / track uncertainty 
+            debug_serial_println();
           #endif 
 
            PackSensorTable(0x800, 0);   // 0x800 Lat
@@ -1265,17 +1238,17 @@ void DecodeOneMavFrame() {
           ap26_temp = mavlink_msg_scaled_imu_get_temperature(&R2Gmsg);         
           
           #if defined Mav_Debug_All || defined Mav_Debug_Scaled_IMU
-            debug_print("Mavlink from FC #26 Scaled_IMU: ");
-            debug_print("xacc="); debug_print((float)ap26_xacc / 1000, 3); 
-            debug_print("  yacc="); debug_print((float)ap26_yacc / 1000, 3); 
-            debug_print("  zacc="); debug_print((float)ap26_zacc / 1000, 3);
-            debug_print("  xgyro="); debug_print((float)ap26_xgyro / 1000, 3); 
-            debug_print("  ygyro="); debug_print((float)ap26_ygyro / 1000, 3); 
-            debug_print("  zgyro="); debug_print((float)ap26_zgyro / 1000, 3);
-            debug_print("  xmag="); debug_print((float)ap26_xmag / 1000, 3); 
-            debug_print("  ymag="); debug_print((float)ap26_ymag / 1000, 3); 
-            debug_print("  zmag="); debug_print((float)ap26_zmag / 1000, 3);  
-            debug_print("  temp="); debug_println((float)ap26_temp / 100, 2);    // cdegC                              
+            debug_serial_print("Mavlink from FC #26 Scaled_IMU: ");
+            debug_serial_print("xacc="); debug_serial_print((float)ap26_xacc / 1000, 3); 
+            debug_serial_print("  yacc="); debug_serial_print((float)ap26_yacc / 1000, 3); 
+            debug_serial_print("  zacc="); debug_serial_print((float)ap26_zacc / 1000, 3);
+            debug_serial_print("  xgyro="); debug_serial_print((float)ap26_xgyro / 1000, 3); 
+            debug_serial_print("  ygyro="); debug_serial_print((float)ap26_ygyro / 1000, 3); 
+            debug_serial_print("  zgyro="); debug_serial_print((float)ap26_zgyro / 1000, 3);
+            debug_serial_print("  xmag="); debug_serial_print((float)ap26_xmag / 1000, 3); 
+            debug_serial_print("  ymag="); debug_serial_print((float)ap26_ymag / 1000, 3); 
+            debug_serial_print("  zmag="); debug_serial_print((float)ap26_zmag / 1000, 3);  
+            debug_serial_print("  temp="); debug_serial_println((float)ap26_temp / 100, 2);    // cdegC                              
           #endif 
 
           break; 
@@ -1296,18 +1269,18 @@ void DecodeOneMavFrame() {
           //  mav2
           ap26_temp = mavlink_msg_scaled_imu_get_temperature(&R2Gmsg);           
           #if defined Mav_Debug_All || defined Mav_Debug_Raw_IMU
-            debug_print("Mavlink from FC #27 Raw_IMU: ");
-            debug_print("accX="); debug_print((float)ap27_xacc / 1000); 
-            debug_print("  accY="); debug_print((float)ap27_yacc / 1000); 
-            debug_print("  accZ="); debug_println((float)ap27_zacc / 1000);
-            debug_print("  xgyro="); debug_print((float)ap27_xgyro / 1000, 3); 
-            debug_print("  ygyro="); debug_print((float)ap27_ygyro / 1000, 3); 
-            debug_print("  zgyro="); debug_print((float)ap27_zgyro / 1000, 3);
-            debug_print("  xmag="); debug_print((float)ap27_xmag / 1000, 3); 
-            debug_print("  ymag="); debug_print((float)ap27_ymag / 1000, 3); 
-            debug_print("  zmag="); debug_print((float)ap27_zmag / 1000, 3);
-            debug_print("  id="); debug_print((float)ap27_id);             
-            debug_print("  temp="); debug_println((float)ap27_temp / 100, 2);    // cdegC               
+            debug_serial_print("Mavlink from FC #27 Raw_IMU: ");
+            debug_serial_print("accX="); debug_serial_print((float)ap27_xacc / 1000); 
+            debug_serial_print("  accY="); debug_serial_print((float)ap27_yacc / 1000); 
+            debug_serial_print("  accZ="); debug_serial_println((float)ap27_zacc / 1000);
+            debug_serial_print("  xgyro="); debug_serial_print((float)ap27_xgyro / 1000, 3); 
+            debug_serial_print("  ygyro="); debug_serial_print((float)ap27_ygyro / 1000, 3); 
+            debug_serial_print("  zgyro="); debug_serial_print((float)ap27_zgyro / 1000, 3);
+            debug_serial_print("  xmag="); debug_serial_print((float)ap27_xmag / 1000, 3); 
+            debug_serial_print("  ymag="); debug_serial_print((float)ap27_ymag / 1000, 3); 
+            debug_serial_print("  zmag="); debug_serial_print((float)ap27_zmag / 1000, 3);
+            debug_serial_print("  id="); debug_serial_print((float)ap27_id);             
+            debug_serial_print("  temp="); debug_serial_println((float)ap27_temp / 100, 2);    // cdegC               
           #endif 
         #endif             
           break; 
@@ -1318,11 +1291,11 @@ void DecodeOneMavFrame() {
           ap_press_abs = mavlink_msg_scaled_pressure_get_press_abs(&R2Gmsg);
           ap_temperature = mavlink_msg_scaled_pressure_get_temperature(&R2Gmsg);
           #if defined Mav_Debug_All || defined Mav_Debug_Scaled_Pressure
-            debug_print("Mavlink from FC #29 Scaled_Pressure: ");
-            debug_print("  press_abs=");  debug_print(ap_press_abs,1);
-            debug_print("hPa  press_diff="); debug_print(ap_press_diff, 3);
-            debug_print("hPa  temperature=");  debug_print((float)(ap_temperature)/100, 1); 
-            debug_println("C");             
+            debug_serial_print("Mavlink from FC #29 Scaled_Pressure: ");
+            debug_serial_print("  press_abs=");  debug_serial_print(ap_press_abs,1);
+            debug_serial_print("hPa  press_diff="); debug_serial_print(ap_press_diff, 3);
+            debug_serial_print("hPa  temperature=");  debug_serial_print((float)(ap_temperature)/100, 1); 
+            debug_serial_println("C");             
           #endif 
         #endif                          
           break;  
@@ -1341,13 +1314,13 @@ void DecodeOneMavFrame() {
           ap_yaw = RadToDeg(ap_yaw);
           
           #if defined Mav_Debug_All || defined Mav_Debug_Attitude   
-            debug_print("Mavlink from FC #30 Attitude: ");      
-            debug_print(" ap_roll degs=");
-            debug_print(ap_roll, 1);
-            debug_print(" ap_pitch degs=");   
-            debug_print(ap_pitch, 1);
-            debug_print(" ap_yaw degs=");         
-            debug_println(ap_yaw, 1);
+            debug_serial_print("Mavlink from FC #30 Attitude: ");      
+            debug_serial_print(" ap_roll degs=");
+            debug_serial_print(ap_roll, 1);
+            debug_serial_print(" ap_pitch degs=");   
+            debug_serial_print(ap_pitch, 1);
+            debug_serial_print(" ap_yaw degs=");         
+            debug_serial_println(ap_yaw, 1);
           #endif             
       
           PackSensorTable(0x5006, 0 );  // 0x5006 Attitude      
@@ -1370,15 +1343,15 @@ void DecodeOneMavFrame() {
           cur.hdg = ap_gps_hdg / 100;
 
           #if defined Mav_Debug_All || defined Mav_Debug_GPS_Int
-            debug_print("Mavlink from FC #33 GPS Int: ");
-            debug_print(" ap_lat="); debug_print((float)ap_lat33 / 1E7, 6);
-            debug_print(" ap_lon="); debug_print((float)ap_lon33 / 1E7, 6);
-            debug_print(" ap_amsl="); debug_print((float)ap_amsl33 / 1E3, 0);
-            debug_print(" ap_alt_ag="); debug_print((float)ap_alt_ag / 1E3, 1);           
-            debug_print(" ap_vx="); debug_print((float)ap_vx / 100, 2);
-            debug_print(" ap_vy="); debug_print((float)ap_vy / 100, 2);
-            debug_print(" ap_vz="); debug_print((float)ap_vz / 100, 2);
-            debug_print(" ap_gps_hdg="); debug_println((float)ap_gps_hdg / 100, 1);
+            debug_serial_print("Mavlink from FC #33 GPS Int: ");
+            debug_serial_print(" ap_lat="); debug_serial_print((float)ap_lat33 / 1E7, 6);
+            debug_serial_print(" ap_lon="); debug_serial_print((float)ap_lon33 / 1E7, 6);
+            debug_serial_print(" ap_amsl="); debug_serial_print((float)ap_amsl33 / 1E3, 0);
+            debug_serial_print(" ap_alt_ag="); debug_serial_print((float)ap_alt_ag / 1E3, 1);           
+            debug_serial_print(" ap_vx="); debug_serial_print((float)ap_vx / 100, 2);
+            debug_serial_print(" ap_vy="); debug_serial_print((float)ap_vy / 100, 2);
+            debug_serial_print(" ap_vz="); debug_serial_print((float)ap_vz / 100, 2);
+            debug_serial_print(" ap_gps_hdg="); debug_serial_println((float)ap_gps_hdg / 100, 1);
           #endif  
                 
           break;  
@@ -1396,15 +1369,15 @@ void DecodeOneMavFrame() {
             #endif               
             #if defined Mav_Debug_All || defined Debug_Rssi || defined Mav_Debug_RC
               #ifndef RSSI_Override
-                debug_print("Auto RSSI_Source===>  ");
+                debug_serial_print("Auto RSSI_Source===>  ");
               #endif
             #endif     
           }
 
           #if defined Mav_Debug_All || defined Debug_Rssi || defined Mav_Debug_RC
-            debug_print("Mavlink from FC #35 RC_Channels_Raw: ");                        
-            debug_print("  ap_rssi35=");  debug_print(ap_rssi35);   // 0xff -> 100%
-            debug_print("  rssiGood=");  debug_println(rssiGood); 
+            debug_serial_print("Mavlink from FC #35 RC_Channels_Raw: ");                        
+            debug_serial_print("  ap_rssi35=");  debug_serial_print(ap_rssi35);   // 0xff -> 100%
+            debug_serial_print("  rssiGood=");  debug_serial_println(rssiGood); 
           #endif                    
           break;  
         case MAVLINK_MSG_ID_SERVO_OUTPUT_RAW :          // #36
@@ -1432,16 +1405,16 @@ void DecodeOneMavFrame() {
           */       
       
           #if defined Mav_Debug_All ||  defined Mav_Debug_Servo
-            debug_print("Mavlink from FC #36 servo_output: ");
-            debug_print("ap_port="); debug_print(ap_port); 
-            debug_print(" PWM: ");
+            debug_serial_print("Mavlink from FC #36 servo_output: ");
+            debug_serial_print("ap_port="); debug_serial_print(ap_port); 
+            debug_serial_print(" PWM: ");
             for (int i=0 ; i < 8; i++) {
-              debug_print(" "); 
-              debug_print(i+1);
-              debug_print("=");  
-              debug_print(ap_servo_raw[i]);   
+              debug_serial_print(" "); 
+              debug_serial_print(i+1);
+              debug_serial_print("=");  
+              debug_serial_print(ap_servo_raw[i]);   
             }                         
-            debug_println();     
+            debug_serial_println();     
           #endif  
           
           #if defined PlusVersion
@@ -1466,30 +1439,28 @@ void DecodeOneMavFrame() {
             ap_mission_type = mavlink_msg_mission_item_get_z(&R2Gmsg);                // MAV_MISSION_TYPE
                      
             #if defined Mav_Debug_All || defined Mav_Debug_Mission
-              debug_print("Mavlink from FC #39 Mission Item: ");
-              debug_print("ap_ms_seq="); debug_print(ap_ms_seq);  
-              debug_print(" ap_ms_frame="); debug_print(ap_ms_frame);   
-              debug_print(" ap_ms_command="); debug_print(ap_ms_command);   
-              debug_print(" ap_ms_current="); debug_print(ap_ms_current);   
-              debug_print(" ap_ms_autocontinue="); debug_print(ap_ms_autocontinue);  
-              debug_print(" ap_ms_param1="); debug_print(ap_ms_param1, 7);   
-              debug_print(" ap_ms_param2="); debug_print(ap_ms_param2, 7);   
-              debug_print(" ap_ms_param3="); debug_print(ap_ms_param3, 7);  
-              debug_print(" ap_ms_param4="); debug_print(ap_ms_param4, 7); 
-              debug_print(" ap_ms_x="); debug_print(ap_ms_x, 7);   
-              debug_print(" ap_ms_y="); debug_print(ap_ms_y, 7);   
-              debug_print(" ap_ms_z="); debug_print(ap_ms_z,0); 
-              debug_print(" ap_mission_type="); debug_print(ap_mission_type); 
-              debug_println();    
+              debug_serial_print("Mavlink from FC #39 Mission Item: ");
+              debug_serial_print("ap_ms_seq="); debug_serial_print(ap_ms_seq);  
+              debug_serial_print(" ap_ms_frame="); debug_serial_print(ap_ms_frame);   
+              debug_serial_print(" ap_ms_command="); debug_serial_print(ap_ms_command);   
+              debug_serial_print(" ap_ms_current="); debug_serial_print(ap_ms_current);   
+              debug_serial_print(" ap_ms_autocontinue="); debug_serial_print(ap_ms_autocontinue);  
+              debug_serial_print(" ap_ms_param1="); debug_serial_print(ap_ms_param1, 7);   
+              debug_serial_print(" ap_ms_param2="); debug_serial_print(ap_ms_param2, 7);   
+              debug_serial_print(" ap_ms_param3="); debug_serial_print(ap_ms_param3, 7);  
+              debug_serial_print(" ap_ms_param4="); debug_serial_print(ap_ms_param4, 7); 
+              debug_serial_print(" ap_ms_x="); debug_serial_print(ap_ms_x, 7);   
+              debug_serial_print(" ap_ms_y="); debug_serial_print(ap_ms_y, 7);   
+              debug_serial_print(" ap_ms_z="); debug_serial_print(ap_ms_z,0); 
+              debug_serial_print(" ap_mission_type="); debug_serial_print(ap_mission_type); 
+              debug_serial_println();    
             #endif
             
             if (ap_ms_seq > Max_Waypoints) {
-              debug_println(" Max Waypoints exceeded! Waypoint ignored.");
+              debug_serial_println(" Max Waypoints exceeded! Waypoint ignored.");
               break;
             }
 
-             WP[ap_ms_seq-1].lat = ap_ms_x;     //  seq = 1 goes into slot [0]
-             WP[ap_ms_seq-1].lon = ap_ms_y;
              
           break;                    
         case MAVLINK_MSG_ID_MISSION_CURRENT:         // #42 should come down regularly as part of EXTENDED_status group
@@ -1498,8 +1469,8 @@ void DecodeOneMavFrame() {
             
             #if defined Mav_Debug_All || defined Mav_Debug_Mission
             if (ap_ms_seq) {
-              debug_print("Mavlink from FC #42 Mission Current: ");
-              debug_print("ap_mission_current="); debug_println(ap_ms_seq);   
+              debug_serial_print("Mavlink from FC #42 Mission Current: ");
+              debug_serial_print("ap_mission_current="); debug_serial_println(ap_ms_seq);   
             }
             #endif 
               
@@ -1511,8 +1482,8 @@ void DecodeOneMavFrame() {
           if (!mavGood) break;  
             ap_mission_count =  mavlink_msg_mission_count_get_count(&R2Gmsg); 
             #if defined Mav_Debug_All || defined Mav_Debug_Mission
-              debug_print("Mavlink from FC #44 Mission Count: ");
-              debug_print("ap_mission_count="); debug_println(ap_mission_count);   
+              debug_serial_print("Mavlink from FC #44 Mission Count: ");
+              debug_serial_print("ap_mission_count="); debug_serial_println(ap_mission_count);   
             #endif
             #if defined Request_Missions_From_FC
             if ((ap_mission_count > 0) && (ap_ms_count_ft)) {
@@ -1535,16 +1506,16 @@ void DecodeOneMavFrame() {
             ap_xtrack_error = mavlink_msg_nav_controller_output_get_xtrack_error(&R2Gmsg);      // Current crosstrack error on x-y plane
 
             #if defined Mav_Debug_All || defined Mav_Debug_Waypoints
-              debug_print("Mavlink from FC #62 Nav_Controller_Output - (+Waypoint): ");
-              debug_print("ap_nav_roll="); debug_print(ap_nav_roll, 3);  
-              debug_print(" ap_nav_pitch="); debug_print(ap_nav_pitch, 3);   
-              debug_print(" ap_nav_bearing="); debug_print(ap_nav_bearing);   
-              debug_print(" ap_target_bearing="); debug_print(ap_target_bearing);   
-              debug_print(" ap_wp_dist="); debug_print(ap_wp_dist);  
-              debug_print(" ap_alt_error="); debug_print(ap_alt_error, 2);   
-              debug_print(" ap_aspd_error="); debug_print(ap_aspd_error, 2);   
-              debug_print(" ap_xtrack_error="); debug_print(ap_xtrack_error, 2);  
-              debug_println();    
+              debug_serial_print("Mavlink from FC #62 Nav_Controller_Output - (+Waypoint): ");
+              debug_serial_print("ap_nav_roll="); debug_serial_print(ap_nav_roll, 3);  
+              debug_serial_print(" ap_nav_pitch="); debug_serial_print(ap_nav_pitch, 3);   
+              debug_serial_print(" ap_nav_bearing="); debug_serial_print(ap_nav_bearing);   
+              debug_serial_print(" ap_target_bearing="); debug_serial_print(ap_target_bearing);   
+              debug_serial_print(" ap_wp_dist="); debug_serial_print(ap_wp_dist);  
+              debug_serial_print(" ap_alt_error="); debug_serial_print(ap_alt_error, 2);   
+              debug_serial_print(" ap_aspd_error="); debug_serial_print(ap_aspd_error, 2);   
+              debug_serial_print(" ap_xtrack_error="); debug_serial_print(ap_xtrack_error, 2);  
+              debug_serial_println();    
             #endif
             
             #if defined PlusVersion  
@@ -1587,23 +1558,23 @@ void DecodeOneMavFrame() {
               #endif                
               #if defined Mav_Debug_All || defined Debug_Rssi || defined Mav_Debug_RC
                 #ifndef RSSI_Override
-                  debug_print("Auto RSSI_Source===>  ");
+                  debug_serial_print("Auto RSSI_Source===>  ");
                 #endif
               #endif     
               }
              
             #if defined Mav_Debug_All || defined Debug_Rssi || defined Mav_Debug_RC
-              debug_print("Mavlink from FC #65 RC_Channels: ");
-              debug_print("ap_chcnt="); debug_print(ap_chcnt); 
-              debug_print(" PWM: ");
+              debug_serial_print("Mavlink from FC #65 RC_Channels: ");
+              debug_serial_print("ap_chcnt="); debug_serial_print(ap_chcnt); 
+              debug_serial_print(" PWM: ");
               for (int i=0 ; i < ap_chcnt ; i++) {
-                debug_print(" "); 
-                debug_print(i+1);
-                debug_print("=");  
-                debug_print(ap_chan_raw[i]);   
+                debug_serial_print(" "); 
+                debug_serial_print(i+1);
+                debug_serial_print("=");  
+                debug_serial_print(ap_chan_raw[i]);   
               }                         
-              debug_print("  ap_rssi65=");  debug_print(ap_rssi65); 
-              debug_print("  rssiGood=");  debug_println(rssiGood);         
+              debug_serial_print("  ap_rssi65=");  debug_serial_print(ap_rssi65); 
+              debug_serial_print("  rssiGood=");  debug_serial_println(rssiGood);         
             #endif             
           break;      
         case MAVLINK_MSG_ID_REQUEST_DATA_STREAM:     // #66 - OUTGOING TO UAV
@@ -1628,22 +1599,22 @@ void DecodeOneMavFrame() {
           ap73_z = mavlink_msg_mission_item_int_get_z(&R2Gmsg);               // PARAM7 / z position: global: altitude in meters (relative or absolute, depending on frame.
           ap73_mission_type = mavlink_msg_mission_item_int_get_mission_type(&R2Gmsg); // Mav2   MAV_MISSION_TYPE  Mission type.
  
-          debug_print("Mavlink from FC #73 Mission_Item_Int: ");
-          debug_print("target_system ="); debug_print(ap73_target_system);   
-          debug_print("  target_component ="); debug_print(ap73_target_component);   
-          debug_print(" _seq ="); debug_print(ap73_seq);   
-          debug_print("  frame ="); debug_print(ap73_frame);     
-          debug_print("  command ="); debug_print(ap73_command);   
-          debug_print("  current ="); debug_print(ap73_current);   
-          debug_print("  autocontinue ="); debug_print(ap73_autocontinue);   
-          debug_print("  param1 ="); debug_print(ap73_param1, 2); 
-          debug_print("  param2 ="); debug_print(ap73_param2, 2); 
-          debug_print("  param3 ="); debug_print(ap73_param3, 2); 
-          debug_print("  param4 ="); debug_print(ap73_param4, 2);                                          
-          debug_print("  x ="); debug_print(ap73_x);   
-          debug_print("  y ="); debug_print(ap73_y);   
-          debug_print("  z ="); debug_print(ap73_z, 4);    
-          debug_print("  mission_type ="); debug_println(ap73_mission_type);                                                    
+          debug_serial_print("Mavlink from FC #73 Mission_Item_Int: ");
+          debug_serial_print("target_system ="); debug_serial_print(ap73_target_system);   
+          debug_serial_print("  target_component ="); debug_serial_print(ap73_target_component);   
+          debug_serial_print(" _seq ="); debug_serial_print(ap73_seq);   
+          debug_serial_print("  frame ="); debug_serial_print(ap73_frame);     
+          debug_serial_print("  command ="); debug_serial_print(ap73_command);   
+          debug_serial_print("  current ="); debug_serial_print(ap73_current);   
+          debug_serial_print("  autocontinue ="); debug_serial_print(ap73_autocontinue);   
+          debug_serial_print("  param1 ="); debug_serial_print(ap73_param1, 2); 
+          debug_serial_print("  param2 ="); debug_serial_print(ap73_param2, 2); 
+          debug_serial_print("  param3 ="); debug_serial_print(ap73_param3, 2); 
+          debug_serial_print("  param4 ="); debug_serial_print(ap73_param4, 2);                                          
+          debug_serial_print("  x ="); debug_serial_print(ap73_x);   
+          debug_serial_print("  y ="); debug_serial_print(ap73_y);   
+          debug_serial_print("  z ="); debug_serial_print(ap73_z, 4);    
+          debug_serial_print("  mission_type ="); debug_serial_println(ap73_mission_type);                                                    
 
           break; 
         #endif
@@ -1660,13 +1631,13 @@ void DecodeOneMavFrame() {
           cur.hdg = ap_hud_hdg;
           
          #if defined Mav_Debug_All || defined Mav_Debug_Hud
-            debug_print("Mavlink from FC #74 VFR_HUD: ");
-            debug_print("Airspeed= "); debug_print(ap_hud_air_spd, 2);                 // m/s    
-            debug_print("  Groundspeed= "); debug_print(ap_hud_grd_spd, 2);            // m/s
-            debug_print("  Heading= ");  debug_print(ap_hud_hdg);                      // deg
-            debug_print("  Throttle %= ");  debug_print(ap_hud_throt);                 // %
-            debug_print("  Baro alt= "); debug_print(ap_hud_bar_alt, 0);               // m                  
-            debug_print("  Climb rate= "); debug_println(ap_hud_climb);                // m/s
+            debug_serial_print("Mavlink from FC #74 VFR_HUD: ");
+            debug_serial_print("Airspeed= "); debug_serial_print(ap_hud_air_spd, 2);                 // m/s    
+            debug_serial_print("  Groundspeed= "); debug_serial_print(ap_hud_grd_spd, 2);            // m/s
+            debug_serial_print("  Heading= ");  debug_serial_print(ap_hud_hdg);                      // deg
+            debug_serial_print("  Throttle %= ");  debug_serial_print(ap_hud_throt);                 // %
+            debug_serial_print("  Baro alt= "); debug_serial_print(ap_hud_bar_alt, 0);               // m                  
+            debug_serial_print("  Climb rate= "); debug_serial_println(ap_hud_climb);                // m/s
           #endif  
 
           PackSensorTable(0x5005, 0);  // 0x5005 VelYaw
@@ -1700,20 +1671,20 @@ void DecodeOneMavFrame() {
             
             #if defined Mav_Debug_All || defined Debug_Rssi || defined Mav_Debug_RC
               #ifndef RSSI_Override
-                debug_print("Auto RSSI_Source===>  ");
+                debug_serial_print("Auto RSSI_Source===>  ");
               #endif
             #endif     
 
             #if defined Mav_Debug_All || defined Debug_Radio_Status || defined Debug_Rssi
-              debug_print("Mavlink from FC #109 Radio: "); 
-              debug_print("ap_rssi109="); debug_print(ap_rssi109);
-              debug_print("  remrssi="); debug_print(ap_remrssi);
-              debug_print("  txbuf="); debug_print(ap_txbuf);
-              debug_print("  noise="); debug_print(ap_noise); 
-              debug_print("  remnoise="); debug_print(ap_remnoise);
-              debug_print("  rxerrors="); debug_print(ap_rxerrors);
-              debug_print("  fixed="); debug_print(ap_fixed);  
-              debug_print("  rssiGood=");  debug_println(rssiGood);                                
+              debug_serial_print("Mavlink from FC #109 Radio: "); 
+              debug_serial_print("ap_rssi109="); debug_serial_print(ap_rssi109);
+              debug_serial_print("  remrssi="); debug_serial_print(ap_remrssi);
+              debug_serial_print("  txbuf="); debug_serial_print(ap_txbuf);
+              debug_serial_print("  noise="); debug_serial_print(ap_noise); 
+              debug_serial_print("  remnoise="); debug_serial_print(ap_remnoise);
+              debug_serial_print("  rxerrors="); debug_serial_print(ap_rxerrors);
+              debug_serial_print("  fixed="); debug_serial_print(ap_fixed);  
+              debug_serial_print("  rssiGood=");  debug_serial_println(rssiGood);                                
             #endif 
 
           break;     
@@ -1729,10 +1700,10 @@ void DecodeOneMavFrame() {
             ap_Vservo = mavlink_msg_power_status_get_Vservo(&R2Gmsg);   // servo rail voltage in millivolts
             ap_flags = mavlink_msg_power_status_get_flags(&R2Gmsg);     // power supply status flags (see MAV_POWER_status enum)
             #ifdef Mav_Debug_All
-              debug_print("Mavlink from FC #125 Power Status: ");
-              debug_print("Vcc= "); debug_print(ap_Vcc); 
-              debug_print("  Vservo= ");  debug_print(ap_Vservo);       
-              debug_print("  flags= ");  debug_println(ap_flags);       
+              debug_serial_print("Mavlink from FC #125 Power Status: ");
+              debug_serial_print("Vcc= "); debug_serial_print(ap_Vcc); 
+              debug_serial_print("  Vservo= ");  debug_serial_print(ap_Vservo);       
+              debug_serial_print("  flags= ");  debug_serial_println(ap_flags);       
             #endif  
           #endif              
             break; 
@@ -1750,19 +1721,19 @@ void DecodeOneMavFrame() {
           } 
              
           #if defined Mav_Debug_All || defined Debug_Batteries
-            debug_print("Mavlink from FC #147 Battery Status: ");
-            debug_print(" bat id= "); debug_print(ap_battery_id); 
-            debug_print(" bat current mA= "); debug_print(ap_current_battery*10); 
-            debug_print(" ap_current_consumed mAh= ");  debug_print(ap_current_consumed);   
+            debug_serial_print("Mavlink from FC #147 Battery Status: ");
+            debug_serial_print(" bat id= "); debug_serial_print(ap_battery_id); 
+            debug_serial_print(" bat current mA= "); debug_serial_print(ap_current_battery*10); 
+            debug_serial_print(" ap_current_consumed mAh= ");  debug_serial_print(ap_current_consumed);   
             if (ap_battery_id == 0) {
-              debug_print(" my di/dt mAh= ");  
-              debug_println(Total_mAh1(), 0);  
+              debug_serial_print(" my di/dt mAh= ");  
+              debug_serial_println(Total_mAh1(), 0);  
             }
             else {
-              debug_print(" my di/dt mAh= ");  
-              debug_println(Total_mAh2(), 0);   
+              debug_serial_print(" my di/dt mAh= ");  
+              debug_serial_println(Total_mAh2(), 0);   
             }    
-        //  debug_print(" bat % remaining= ");  debug_println(ap_time_remaining);       
+        //  debug_serial_print(" bat % remaining= ");  debug_serial_println(ap_time_remaining);       
           #endif                        
           
           break;    
@@ -1780,9 +1751,9 @@ void DecodeOneMavFrame() {
           ap_range = mavlink_msg_rangefinder_get_distance(&R2Gmsg);  // distance in meters
 
           #if defined Mav_Debug_All || defined Mav_Debug_Range
-            debug_print("Mavlink from FC #173 rangefinder: ");        
-            debug_print(" distance=");
-            debug_println(ap_range);   // now V
+            debug_serial_print("Mavlink from FC #173 rangefinder: ");        
+            debug_serial_print(" distance=");
+            debug_serial_println(ap_range);   // now V
           #endif  
 
           PackSensorTable(0x5006, 0);  // 0x5006 Rangefinder
@@ -1803,17 +1774,17 @@ void DecodeOneMavFrame() {
             else ap_cell_count2 = 0;
    
           #if defined Mav_Debug_All || defined Debug_Batteries
-            debug_print("Mavlink from FC #181 Battery2: ");        
-            debug_print(" Bat volts=");
-            debug_print((float)ap_voltage_battery2 / 1000, 3);   // now V
-            debug_print("  Bat amps=");
-            debug_print((float)ap_current_battery2 / 100, 1);   // now A
+            debug_serial_print("Mavlink from FC #181 Battery2: ");        
+            debug_serial_print(" Bat volts=");
+            debug_serial_print((float)ap_voltage_battery2 / 1000, 3);   // now V
+            debug_serial_print("  Bat amps=");
+            debug_serial_print((float)ap_current_battery2 / 100, 1);   // now A
               
-            debug_print("  mAh="); debug_print(bat2.mAh, 6);    
-            debug_print("  Total mAh="); debug_print(bat2.tot_mAh, 3);
+            debug_serial_print("  mAh="); debug_serial_print(bat2.mAh, 6);    
+            debug_serial_print("  Total mAh="); debug_serial_print(bat2.tot_mAh, 3);
          
-            debug_print("  Bat cell count= "); 
-            debug_println(ap_cell_count2);
+            debug_serial_print("  Bat cell count= "); 
+            debug_serial_println(ap_cell_count2);
           #endif
 
           PackSensorTable(0x5008, 0);   // 0x5008 Bat2       
@@ -1828,10 +1799,10 @@ void DecodeOneMavFrame() {
           len=mavlink_msg_statustext_get_text(&R2Gmsg, ap_text);
 
           #if defined Mav_Debug_All || defined Mav_Debug_StatusText
-            debug_print("Mavlink from FC #253 Statustext pushed onto MsgRingBuff: ");
-            debug_print(" Severity="); debug_print(ap_severity);
-            debug_print(" "); debug_print(MavSeverity(ap_severity));
-            debug_print("  Text= ");  debug_print(" |"); debug_print(ap_text); debug_println("| ");
+            debug_serial_print("Mavlink from FC #253 Statustext pushed onto MsgRingBuff: ");
+            debug_serial_print(" Severity="); debug_serial_print(ap_severity);
+            debug_serial_print(" "); debug_serial_print(MavSeverity(ap_severity));
+            debug_serial_print("  Text= ");  debug_serial_print(" |"); debug_serial_print(ap_text); debug_serial_println("| ");
           #endif
 
           PackSensorTable(0x5000, 0);         // 0x5000 StatusText Message
@@ -1840,10 +1811,10 @@ void DecodeOneMavFrame() {
         default:
           if (!mavGood) break;
           #if defined Mav_Debug_All || defined Mav_Show_Unknown_Msgs
-            debug_print("Mavlink from FC: ");
-            debug_print("Unknown Message ID #");
-            debug_print(R2Gmsg.msgid);
-            debug_println(" Ignored"); 
+            debug_serial_print("Mavlink from FC: ");
+            debug_serial_print("Unknown Message ID #");
+            debug_serial_print(R2Gmsg.msgid);
+            debug_serial_println(" Ignored"); 
           #endif
 
           break;
@@ -1860,15 +1831,15 @@ void MarkHome()  {
   hom.hdg = cur.hdg;
 
   #if defined Mav_Debug_All || defined Mav_Debug_GPS_Int
-    debug_print("******************************************Mavlink in #33 GPS Int: Home established: ");       
-    debug_print("hom.lat=");  debug_print(hom.lat, 7);
-    debug_print(" hom.lon=");  debug_print(hom.lon, 7 );        
-    debug_print(" hom.alt="); debug_print(hom.alt, 1);
-    debug_print(" hom.hdg="); debug_println(hom.hdg);                   
+    debug_serial_print("******************************************Mavlink in #33 GPS Int: Home established: ");       
+    debug_serial_print("hom.lat=");  debug_serial_print(hom.lat, 7);
+    debug_serial_print(" hom.lon=");  debug_serial_print(hom.lon, 7 );        
+    debug_serial_print(" hom.alt="); debug_serial_print(hom.alt, 1);
+    debug_serial_print(" hom.hdg="); debug_serial_println(hom.hdg);                   
  #endif  
 }
 //================================================================================================= 
-void Send_FC_Heartbeat() {
+/*void Send_FC_Heartbeat() {
   
   apo_sysid = 20;                                // ID 20 for this aircraft
   apo_compid = 1;                                //  autopilot1
@@ -1903,7 +1874,7 @@ void Send_FC_Heartbeat() {
               
   Write_To_FC(21);
                     
- }
+ }*/
 //================================================================================================= 
 #ifdef Request_Missions_From_FC
 void RequestMission(uint16_t ms_seq) {    //  #40
@@ -1918,7 +1889,7 @@ void RequestMission(uint16_t ms_seq) {    //  #40
 
   Write_To_FC(40);
   #if defined Mav_Debug_All || defined Mav_Debug_Mission
-    debug_print("Mavlink to FC #40 Request Mission:  ms_seq="); debug_println(ms_seq);
+    debug_serial_print("Mavlink to FC #40 Request Mission:  ms_seq="); debug_serial_println(ms_seq);
   #endif  
 }
 #endif 
@@ -1937,7 +1908,7 @@ void RequestMissionList() {   // #43   get back #44 Mission_Count
                              
   Write_To_FC(43);
   #if defined Mav_Debug_All || defined Mav_Debug_Mission
-    debug_println("Mavlink to FC #43 Request Mission List (count)");
+    debug_serial_println("Mavlink to FC #43 Request Mission List (count)");
   #endif  
 }
 #endif
@@ -1978,7 +1949,7 @@ void RequestDataStreams() {    //  REQUEST_DATA_STREAM ( #66 ) DEPRECATED. USE S
                           
   Write_To_FC(66);
     }
- // debug_println("Mavlink to FC #66 Request Data Streams:");
+ // debug_serial_println("Mavlink to FC #66 Request Data Streams:");
 }
 #endif
 //================================================================================================= 
@@ -2007,14 +1978,14 @@ uint8_t sv_count = 0;
       *uartC3 |= 0x20;                 // Switch S.Port into send mode
       modeNow=mode;
       #ifdef Frs_Debug_All
-      debug_println("tx");
+      debug_serial_println("tx");
       #endif
     }
     else if(mode == rx && modeNow != rx) {   
       *uartC3 ^= 0x20;                 // Switch S.Port into receive mode
       modeNow=mode;
       #ifdef Frs_Debug_All
-      debug_println("rx");
+      debug_serial_println("rx");
       #endif
     }
   }
@@ -2051,7 +2022,7 @@ void ReadSPort(void) {
 
     if ((prevByt == 0x7E) && (Byt == 0x1B)) { 
       #if defined Debug_Air_Mode || defined Debug_Relay_Mode
-        debug_println("S/S "); 
+        debug_serial_println("S/S "); 
       #endif
     FrSkySPort_Inject_Packet(); 
 
@@ -2134,16 +2105,16 @@ void FrSkySPort_Inject_Packet() {
     sb_max = sb_max_tier1;
   }
   
-  //debug_println(sb_unsent);  // limited detriment :)  
+  //debug_serial_println(sb_unsent);  // limited detriment :)  
         
   // send the packet if there is one
     if (sb_max > 0) {
 
      #ifdef Frs_Debug_Scheduler
-       debug_print(sb_unsent); 
+       debug_serial_print(sb_unsent); 
        Debug.printf("\tPop  row= %3d", ptr );
-       debug_print("  id=");  debug_print(sb[ptr].id, HEX);
-       if (sb[ptr].id < 0x1000) debug_print(" ");
+       debug_serial_print("  id=");  debug_serial_print(sb[ptr].id, HEX);
+       if (sb[ptr].id < 0x1000) debug_serial_print(" ");
        Debug.printf("  subid= %2d", sb[ptr].subid);       
        Debug.printf("  payload=%12d", sb[ptr].payload );
        Debug.printf("  age=%3d mS \n" , sb_max_tier1 );    
@@ -2172,7 +2143,7 @@ void PushToEmptyRow(sb_t pter) {
   if (j >= sb_rows-1) {
     sens_buf_full_count++;
     if ( (sens_buf_full_count == 0) || (sens_buf_full_count%1000 == 0)) {
-      debug_println("Sensor buffer full. Check S.Port link");  // Report every so often
+      debug_serial_println("Sensor buffer full. Check S.Port link");  // Report every so often
     }
     return;
   }
@@ -2180,10 +2151,10 @@ void PushToEmptyRow(sb_t pter) {
   sb_unsent++;
   
   #if defined Frs_Debug_Scheduler
-    debug_print(sb_unsent); 
+    debug_serial_print(sb_unsent); 
     Debug.printf("\tPush row= %3d", j );
-    debug_print("  id="); debug_print(pter.id, HEX);
-    if (pter.id < 0x1000) debug_print(" ");
+    debug_serial_print("  id="); debug_serial_print(pter.id, HEX);
+    if (pter.id < 0x1000) debug_serial_print(" ");
     Debug.printf("  subid= %2d", pter.subid);    
     Debug.printf("  payload=%12d \n", pter.payload );
   #endif
@@ -2262,9 +2233,9 @@ void PackSensorTable(uint16_t id, uint8_t subid) {
       Pack_Rssi_F101(id);      
       break;       
     default:
-      debug_print("Warning, sensor "); 
-      debug_print(String(id, HEX)); 
-      debug_println(" unknown");
+      debug_serial_print("Warning, sensor "); 
+      debug_serial_print(String(id, HEX)); 
+      debug_serial_println(" unknown");
       break;       
   }
               
@@ -2315,7 +2286,7 @@ void FrSkySPort_SendCrc() {
  CheckByteStuffAndSend(byte);
  
  // DisplayByte(byte);
- // debug_println("");
+ // debug_serial_println("");
   crc = 0;          // CRC reset
 }
 //=================================================================================================  
@@ -2331,9 +2302,9 @@ void FrSkySPort_SendDataFrame(uint8_t Instance, uint16_t Id, uint32_t value) {
  
   uint8_t *bytes = (uint8_t*)&Id;
   #if defined Frs_Debug_Payload
-    debug_print("DataFrame. ID "); 
+    debug_serial_print("DataFrame. ID "); 
     DisplayByte(bytes[0]);
-    debug_print(" "); 
+    debug_serial_print(" "); 
     DisplayByte(bytes[1]);
   #endif
   FrSkySPort_SendByte(bytes[0], true);
@@ -2345,17 +2316,17 @@ void FrSkySPort_SendDataFrame(uint8_t Instance, uint16_t Id, uint32_t value) {
   FrSkySPort_SendByte(bytes[3], true);
   
   #if defined Frs_Debug_Payload
-    debug_print("Payload (send order) "); 
+    debug_serial_print("Payload (send order) "); 
     DisplayByte(bytes[0]);
-    debug_print(" "); 
+    debug_serial_print(" "); 
     DisplayByte(bytes[1]);
-    debug_print(" "); 
+    debug_serial_print(" "); 
     DisplayByte(bytes[2]);
-    debug_print(" "); 
+    debug_serial_print(" "); 
     DisplayByte(bytes[3]);  
-    debug_print("Crc= "); 
+    debug_serial_print("Crc= "); 
     DisplayByte(0xFF-crc);
-    debug_println("/");  
+    debug_serial_println("/");  
   #endif
   
   FrSkySPort_SendCrc();
@@ -2406,13 +2377,13 @@ void PackLat800(uint16_t id) {
           
   #if defined Frs_Debug_All || defined Frs_Debug_LatLon
     ShowPeriod(0); 
-    debug_print("FrSky in LatLon 0x800: ");
-    debug_print(" ap_lat33="); debug_print((float)ap_lat33 / 1E7, 7); 
-    debug_print(" fr_lat="); debug_print(fr_lat);  
-    debug_print(" fr_payload="); debug_print(fr_payload); debug_print(" ");
+    debug_serial_print("FrSky in LatLon 0x800: ");
+    debug_serial_print(" ap_lat33="); debug_serial_print((float)ap_lat33 / 1E7, 7); 
+    debug_serial_print(" fr_lat="); debug_serial_print(fr_lat);  
+    debug_serial_print(" fr_payload="); debug_serial_print(fr_payload); debug_serial_print(" ");
     DisplayPayload(fr_payload);
     int32_t r_lat = (bit32Unpack(fr_payload,0,30) * 100 / 6);
-    debug_print(" lat unpacked="); debug_println(r_lat );    
+    debug_serial_print(" lat unpacked="); debug_serial_println(r_lat );    
   #endif
 
   sr.id = id;
@@ -2447,13 +2418,13 @@ void PackLon800(uint16_t id) {
           
   #if defined Frs_Debug_All || defined Frs_Debug_LatLon
     ShowPeriod(0); 
-    debug_print("FrSky in LatLon 0x800: ");  
-    debug_print(" ap_lon33="); debug_print((float)ap_lon33 / 1E7, 7);     
-    debug_print(" fr_lon="); debug_print(fr_lon); 
-    debug_print(" fr_payload="); debug_print(fr_payload); debug_print(" ");
+    debug_serial_print("FrSky in LatLon 0x800: ");  
+    debug_serial_print(" ap_lon33="); debug_serial_print((float)ap_lon33 / 1E7, 7);     
+    debug_serial_print(" fr_lon="); debug_serial_print(fr_lon); 
+    debug_serial_print(" fr_payload="); debug_serial_print(fr_payload); debug_serial_print(" ");
     DisplayPayload(fr_payload);
     int32_t r_lon = (bit32Unpack(fr_payload,0,30) * 100 / 6);
-    debug_print(" lon unpacked="); debug_println(r_lon );  
+    debug_serial_print(" lon unpacked="); debug_serial_println(r_lon );  
   #endif
 
   sr.id = id;
@@ -2493,10 +2464,10 @@ void PackMultipleTextChunks_5000(uint16_t id) {
 
   #if defined Frs_Debug_All || defined Frs_Debug_StatusText
     ShowPeriod(0); 
-    debug_print("FrSky in AP_Text 0x5000: ");  
-    debug_print(" fr_severity="); debug_print(fr_severity);
-    debug_print(" "); debug_print(MavSeverity(fr_severity)); 
-    debug_print(" Text= ");  debug_print(" |"); debug_print(fr_text); debug_println("| ");
+    debug_serial_print("FrSky in AP_Text 0x5000: ");  
+    debug_serial_print(" fr_severity="); debug_serial_print(fr_severity);
+    debug_serial_print(" "); debug_serial_print(MavSeverity(fr_severity)); 
+    debug_serial_print(" Text= ");  debug_serial_print(" |"); debug_serial_print(fr_text); debug_serial_println("| ");
   #endif
 
   fr_chunk_pntr = 0;
@@ -2518,16 +2489,16 @@ void PackMultipleTextChunks_5000(uint16_t id) {
     
     #if defined Frs_Debug_All || defined Frs_Debug_StatusText
       ShowPeriod(0); 
-      debug_print(" fr_chunk_num="); debug_print(fr_chunk_num); 
-      debug_print(" fr_txtlth="); debug_print(fr_txtlth); 
-      debug_print(" fr_chunk_pntr="); debug_print(fr_chunk_pntr); 
-      debug_print(" "); 
+      debug_serial_print(" fr_chunk_num="); debug_serial_print(fr_chunk_num); 
+      debug_serial_print(" fr_txtlth="); debug_serial_print(fr_txtlth); 
+      debug_serial_print(" fr_chunk_pntr="); debug_serial_print(fr_chunk_pntr); 
+      debug_serial_print(" "); 
       strncpy(fr_chunk_print,fr_chunk, 4);
       fr_chunk_print[4] = 0x00;
-      debug_print(" |"); debug_print(fr_chunk_print); debug_print("| ");
-      debug_print(" fr_payload="); debug_print(fr_payload); debug_print(" ");
+      debug_serial_print(" |"); debug_serial_print(fr_chunk_print); debug_serial_print("| ");
+      debug_serial_print(" fr_payload="); debug_serial_print(fr_payload); debug_serial_print(" ");
       DisplayPayload(fr_payload);
-      debug_println();
+      debug_serial_println();
     #endif  
 
     if (fr_chunk_pntr+4 > (fr_txtlth)) {
@@ -2539,18 +2510,18 @@ void PackMultipleTextChunks_5000(uint16_t id) {
       
       #if defined Frs_Debug_All || defined Frs_Debug_StatusText
         ShowPeriod(0); 
-        debug_print(" fr_chunk_num="); debug_print(fr_chunk_num); 
-        debug_print(" fr_severity="); debug_print(fr_severity);
-        debug_print(" "); debug_print(MavSeverity(fr_severity)); 
+        debug_serial_print(" fr_chunk_num="); debug_serial_print(fr_chunk_num); 
+        debug_serial_print(" fr_severity="); debug_serial_print(fr_severity);
+        debug_serial_print(" "); debug_serial_print(MavSeverity(fr_severity)); 
         bool lsb = (fr_severity & 0x1);
         bool sb = (fr_severity & 0x2) >> 1;
         bool msb = (fr_severity & 0x4) >> 2;
-        debug_print(" ls bit="); debug_print(lsb); 
-        debug_print(" mid bit="); debug_print(sb); 
-        debug_print(" ms bit="); debug_print(msb); 
-        debug_print(" fr_payload="); debug_print(fr_payload); debug_print(" ");
+        debug_serial_print(" ls bit="); debug_serial_print(lsb); 
+        debug_serial_print(" mid bit="); debug_serial_print(sb); 
+        debug_serial_print(" ms bit="); debug_serial_print(msb); 
+        debug_serial_print(" fr_payload="); debug_serial_print(fr_payload); debug_serial_print(" ");
         DisplayPayload(fr_payload);
-        debug_println(); debug_println();
+        debug_serial_println(); debug_serial_println();
      #endif 
      }
 
@@ -2573,14 +2544,14 @@ void PackMultipleTextChunks_5000(uint16_t id) {
 //=================================================================================================  
 void DisplayPayload(uint32_t pl)  {
   uint8_t *bytes;
-  debug_print("//");
+  debug_serial_print("//");
   bytes = (uint8_t*)&pl;
   DisplayByte(bytes[3]);
-  debug_print(" "); 
+  debug_serial_print(" "); 
   DisplayByte(bytes[2]);
-  debug_print(" "); 
+  debug_serial_print(" "); 
   DisplayByte(bytes[1]);
-  debug_print(" "); 
+  debug_serial_print(" "); 
   DisplayByte(bytes[0]);   
 }
 //=================================================================================================  
@@ -2611,18 +2582,18 @@ void Pack_AP_status_5001(uint16_t id) {
 
   #if defined Frs_Debug_All || defined Frs_Debug_APStatus
     ShowPeriod(0); 
-    debug_print("FrSky in AP_status 0x5001: ");   
-    debug_print(" fr_flight_mode="); debug_print(fr_flight_mode);
-    debug_print(" fr_simple="); debug_print(fr_simple);
-    debug_print(" fr_land_complete="); debug_print(fr_land_complete);
-    debug_print(" fr_armed="); debug_print(fr_armed);
-    debug_print(" fr_bat_fs="); debug_print(fr_bat_fs);
-    debug_print(" fr_ekf_fs="); debug_print(fr_ekf_fs);
-    debug_print(" px4_flight_stack="); debug_print(px4_flight_stack);
-    debug_print(" fr_imu_temp="); debug_print(fr_imu_temp);
-    debug_print(" fr_payload="); debug_print(fr_payload); debug_print(" ");
+    debug_serial_print("FrSky in AP_status 0x5001: ");   
+    debug_serial_print(" fr_flight_mode="); debug_serial_print(fr_flight_mode);
+    debug_serial_print(" fr_simple="); debug_serial_print(fr_simple);
+    debug_serial_print(" fr_land_complete="); debug_serial_print(fr_land_complete);
+    debug_serial_print(" fr_armed="); debug_serial_print(fr_armed);
+    debug_serial_print(" fr_bat_fs="); debug_serial_print(fr_bat_fs);
+    debug_serial_print(" fr_ekf_fs="); debug_serial_print(fr_ekf_fs);
+    debug_serial_print(" px4_flight_stack="); debug_serial_print(px4_flight_stack);
+    debug_serial_print(" fr_imu_temp="); debug_serial_print(fr_imu_temp);
+    debug_serial_print(" fr_payload="); debug_serial_print(fr_payload); debug_serial_print(" ");
     DisplayPayload(fr_payload);
-    debug_println();
+    debug_serial_println();
   #endif
 
     sr.id = id;
@@ -2651,23 +2622,23 @@ void Pack_GPS_status_5002(uint16_t id) {
           
   #if defined Frs_Debug_All || defined Frs_Debug_GPS_status
     ShowPeriod(0); 
-    debug_print("FrSky in GPS Status 0x5002: ");   
-    debug_print(" fr_numsats="); debug_print(fr_numsats);
-    debug_print(" fr_gps_status="); debug_print(fr_gps_status);
-    debug_print(" fr_gps_adv_status="); debug_print(fr_gps_adv_status);
-    debug_print(" fr_amsl="); debug_print(fr_amsl);
-    debug_print(" fr_hdop="); debug_print(fr_hdop);
+    debug_serial_print("FrSky in GPS Status 0x5002: ");   
+    debug_serial_print(" fr_numsats="); debug_serial_print(fr_numsats);
+    debug_serial_print(" fr_gps_status="); debug_serial_print(fr_gps_status);
+    debug_serial_print(" fr_gps_adv_status="); debug_serial_print(fr_gps_adv_status);
+    debug_serial_print(" fr_amsl="); debug_serial_print(fr_amsl);
+    debug_serial_print(" fr_hdop="); debug_serial_print(fr_hdop);
   #endif
           
   fr_amsl = prep_number(fr_amsl,2,2);                       // Must include exponent and mantissa    
   fr_hdop = prep_number(fr_hdop,2,1);
           
   #if defined Frs_Debug_All || defined Frs_Debug_GPS_status
-    debug_print(" After prep: fr_amsl="); debug_print(fr_amsl);
-    debug_print(" fr_hdop="); debug_print(fr_hdop); 
-    debug_print(" fr_payload="); debug_print(fr_payload); debug_print(" ");
+    debug_serial_print(" After prep: fr_amsl="); debug_serial_print(fr_amsl);
+    debug_serial_print(" fr_hdop="); debug_serial_print(fr_hdop); 
+    debug_serial_print(" fr_payload="); debug_serial_print(fr_payload); debug_serial_print(" ");
     DisplayPayload(fr_payload);
-    debug_println(); 
+    debug_serial_println(); 
   #endif     
               
   bit32Pack(fr_hdop ,6, 8);
@@ -2690,13 +2661,13 @@ void Pack_Bat1_5003(uint16_t id) {   //  Into sensor table from #1 SYS_status on
   
   #if defined Frs_Debug_All || defined Debug_Batteries
     ShowPeriod(0); 
-    debug_print("FrSky in Bat1 0x5003: ");   
-    debug_print(" fr_bat1_volts="); debug_print(fr_bat1_volts);
-    debug_print(" fr_bat1_amps="); debug_print(fr_bat1_amps);
-    debug_print(" fr_bat1_mAh="); debug_print(fr_bat1_mAh);
-    debug_print(" fr_payload="); debug_print(fr_payload); debug_print(" ");
+    debug_serial_print("FrSky in Bat1 0x5003: ");   
+    debug_serial_print(" fr_bat1_volts="); debug_serial_print(fr_bat1_volts);
+    debug_serial_print(" fr_bat1_amps="); debug_serial_print(fr_bat1_amps);
+    debug_serial_print(" fr_bat1_mAh="); debug_serial_print(fr_bat1_mAh);
+    debug_serial_print(" fr_payload="); debug_serial_print(fr_payload); debug_serial_print(" ");
     DisplayPayload(fr_payload);
-    debug_println();               
+    debug_serial_println();               
   #endif
           
   bit32Pack(fr_bat1_volts ,0, 9);
@@ -2744,15 +2715,15 @@ void Pack_Home_5004(uint16_t id) {
         
    #if defined Frs_Debug_All || defined Frs_Debug_Home
      ShowPeriod(0); 
-     debug_print("FrSky in Home 0x5004: ");         
-     debug_print("fr_home_dist=");  debug_print(fr_home_dist);
-     debug_print(" fr_home_alt=");  debug_print(fr_home_alt);
-     debug_print(" az=");  debug_print(az);
-     debug_print(" fr_home_angle="); debug_print(fr_home_angle);  
-     debug_print(" fr_home_arrow="); debug_print(fr_home_arrow);         // units of 3 deg  
-     debug_print(" fr_payload="); debug_print(fr_payload); debug_print(" ");
+     debug_serial_print("FrSky in Home 0x5004: ");         
+     debug_serial_print("fr_home_dist=");  debug_serial_print(fr_home_dist);
+     debug_serial_print(" fr_home_alt=");  debug_serial_print(fr_home_alt);
+     debug_serial_print(" az=");  debug_serial_print(az);
+     debug_serial_print(" fr_home_angle="); debug_serial_print(fr_home_angle);  
+     debug_serial_print(" fr_home_arrow="); debug_serial_print(fr_home_arrow);         // units of 3 deg  
+     debug_serial_print(" fr_payload="); debug_serial_print(fr_payload); debug_serial_print(" ");
      DisplayPayload(fr_payload);
-    debug_println();      
+    debug_serial_println();      
    #endif
    fr_home_dist = prep_number(roundf(fr_home_dist), 3, 2);
    bit32Pack(fr_home_dist ,0, 12);
@@ -2783,10 +2754,10 @@ void Pack_VelYaw_5005(uint16_t id) {
   
   #if defined Frs_Debug_All || defined Frs_Debug_YelYaw
     ShowPeriod(0); 
-    debug_print("FrSky in VelYaw 0x5005:");  
-    debug_print(" fr_vy=");  debug_print(fr_vy);       
-    debug_print(" fr_vx=");  debug_print(fr_vx);
-    debug_print(" fr_yaw="); debug_print(fr_yaw);
+    debug_serial_print("FrSky in VelYaw 0x5005:");  
+    debug_serial_print(" fr_vy=");  debug_serial_print(fr_vy);       
+    debug_serial_print(" fr_vx=");  debug_serial_print(fr_vx);
+    debug_serial_print(" fr_yaw="); debug_serial_print(fr_yaw);
      
   #endif
   if (fr_vy<0)
@@ -2802,13 +2773,13 @@ void Pack_VelYaw_5005(uint16_t id) {
   bit32Pack(fr_yaw ,17, 11);  
 
  #if defined Frs_Debug_All || defined Frs_Debug_YelYaw
-   debug_print(" After prep:"); 
-   debug_print(" fr_vy=");  debug_print((int)fr_vy);          
-   debug_print(" fr_vx=");  debug_print((int)fr_vx);  
-   debug_print(" fr_yaw="); debug_print((int)fr_yaw);  
-   debug_print(" fr_payload="); debug_print(fr_payload); debug_print(" ");
+   debug_serial_print(" After prep:"); 
+   debug_serial_print(" fr_vy=");  debug_serial_print((int)fr_vy);          
+   debug_serial_print(" fr_vx=");  debug_serial_print((int)fr_vx);  
+   debug_serial_print(" fr_yaw="); debug_serial_print((int)fr_yaw);  
+   debug_serial_print(" fr_payload="); debug_serial_print(fr_payload); debug_serial_print(" ");
    DisplayPayload(fr_payload);
-   debug_println();                 
+   debug_serial_println();                 
  #endif
 
  sr.id = id;
@@ -2829,11 +2800,11 @@ void Pack_Atti_5006(uint16_t id) {
   bit32Pack(prep_number(fr_range,3,1), 21, 11);
   #if defined Frs_Debug_All || defined Frs_Debug_Attitude
     ShowPeriod(0); 
-    debug_print("FrSky in Attitude 0x5006: ");         
-    debug_print("fr_roll=");  debug_print(fr_roll);
-    debug_print(" fr_pitch=");  debug_print(fr_pitch);
-    debug_print(" fr_range="); debug_print(fr_range);
-    debug_print(" Frs_Attitude Payload="); debug_print(fr_payload);  
+    debug_serial_print("FrSky in Attitude 0x5006: ");         
+    debug_serial_print("fr_roll=");  debug_serial_print(fr_roll);
+    debug_serial_print(" fr_pitch=");  debug_serial_print(fr_pitch);
+    debug_serial_print(" fr_range="); debug_serial_print(fr_range);
+    debug_serial_print(" Frs_Attitude Payload="); debug_serial_print(fr_payload);  
   #endif
 
   sr.id = id;
@@ -2859,12 +2830,12 @@ void Pack_Parameters_5007(uint16_t id) {
 
       #if defined Frs_Debug_All || defined Frs_Debug_Params
         ShowPeriod(0);  
-        debug_print("Frsky out Params 0x5007: ");   
-        debug_print(" fr_param_id="); debug_print(fr_param_id);
-        debug_print(" fr_frame_type="); debug_print(fr_frame_type);  
-        debug_print(" fr_payload="); debug_print(fr_payload);  debug_print(" "); 
+        debug_serial_print("Frsky out Params 0x5007: ");   
+        debug_serial_print(" fr_param_id="); debug_serial_print(fr_param_id);
+        debug_serial_print(" fr_frame_type="); debug_serial_print(fr_frame_type);  
+        debug_serial_print(" fr_payload="); debug_serial_print(fr_payload);  debug_serial_print(" "); 
         DisplayPayload(fr_payload);
-        debug_println();                
+        debug_serial_println();                
       #endif
       
       sr.id = id;     
@@ -2887,12 +2858,12 @@ void Pack_Parameters_5007(uint16_t id) {
 
       #if defined Frs_Debug_All || defined Frs_Debug_Params || defined Debug_Batteries
         ShowPeriod(0);       
-        debug_print("Frsky out Params 0x5007: ");   
-        debug_print(" fr_param_id="); debug_print(fr_param_id);
-        debug_print(" fr_bat1_capacity="); debug_print(fr_bat1_capacity);  
-        debug_print(" fr_payload="); debug_print(fr_payload);  debug_println(" "); 
+        debug_serial_print("Frsky out Params 0x5007: ");   
+        debug_serial_print(" fr_param_id="); debug_serial_print(fr_param_id);
+        debug_serial_print(" fr_bat1_capacity="); debug_serial_print(fr_bat1_capacity);  
+        debug_serial_print(" fr_payload="); debug_serial_print(fr_payload);  debug_serial_println(" "); 
         DisplayPayload(fr_payload);
-        debug_println();                   
+        debug_serial_println();                   
       #endif
       
       sr.id = id;
@@ -2915,12 +2886,12 @@ void Pack_Parameters_5007(uint16_t id) {
       
       #if defined Frs_Debug_All || defined Frs_Debug_Params || defined Debug_Batteries
         ShowPeriod(0);  
-        debug_print("Frsky out Params 0x5007: ");   
-        debug_print(" fr_param_id="); debug_print(fr_param_id);
-        debug_print(" fr_bat2_capacity="); debug_print(fr_bat2_capacity); 
-        debug_print(" fr_payload="); debug_print(fr_payload);  debug_print(" "); 
+        debug_serial_print("Frsky out Params 0x5007: ");   
+        debug_serial_print(" fr_param_id="); debug_serial_print(fr_param_id);
+        debug_serial_print(" fr_bat2_capacity="); debug_serial_print(fr_bat2_capacity); 
+        debug_serial_print(" fr_payload="); debug_serial_print(fr_payload);  debug_serial_print(" "); 
         DisplayPayload(fr_payload);
-        debug_println();           
+        debug_serial_println();           
       #endif
       
       sr.subid = 5;
@@ -2942,9 +2913,9 @@ void Pack_Parameters_5007(uint16_t id) {
       
       #if defined Frs_Debug_All || defined Frs_Debug_Params || defined Debug_Batteries
         ShowPeriod(0); 
-        debug_print("Frsky out Params 0x5007: ");   
-        debug_print(" fr_param_id="); debug_print(fr_param_id);
-        debug_print(" fr_mission_count="); debug_println(fr_mission_count);           
+        debug_serial_print("Frsky out Params 0x5007: ");   
+        debug_serial_print(" fr_param_id="); debug_serial_print(fr_param_id);
+        debug_serial_print(" fr_mission_count="); debug_serial_println(fr_mission_count);           
       #endif
  
       fr_paramsSent = true;          // get this done early on and then regularly thereafter
@@ -2964,13 +2935,13 @@ void Pack_Bat2_5008(uint16_t id) {
   
   #if defined Frs_Debug_All || defined Debug_Batteries
     ShowPeriod(0);  
-    debug_print("FrSky in Bat2 0x5008: ");   
-    debug_print(" fr_bat2_volts="); debug_print(fr_bat2_volts);
-    debug_print(" fr_bat2_amps="); debug_print(fr_bat2_amps);
-    debug_print(" fr_bat2_mAh="); debug_print(fr_bat2_mAh);
-    debug_print(" fr_payload="); debug_print(fr_payload);  debug_print(" "); 
+    debug_serial_print("FrSky in Bat2 0x5008: ");   
+    debug_serial_print(" fr_bat2_volts="); debug_serial_print(fr_bat2_volts);
+    debug_serial_print(" fr_bat2_amps="); debug_serial_print(fr_bat2_amps);
+    debug_serial_print(" fr_bat2_mAh="); debug_serial_print(fr_bat2_mAh);
+    debug_serial_print(" fr_payload="); debug_serial_print(fr_payload);  debug_serial_print(" "); 
     DisplayPayload(fr_payload);
-    debug_println();                  
+    debug_serial_println();                  
   #endif        
           
   bit32Pack(fr_bat2_volts ,0, 9);
@@ -3015,16 +2986,16 @@ void Pack_WayPoint_5009(uint16_t id) {
    */
   #if defined Frs_Debug_All || defined Frs_Debug_Mission
     ShowPeriod(0);  
-    debug_print("FrSky in RC 0x5009: ");   
-    debug_print(" fr_ms_seq="); debug_print(fr_ms_seq);
-    debug_print(" fr_ms_dist="); debug_print(fr_ms_dist);
-    debug_print(" fr_ms_xtrack="); debug_print(fr_ms_xtrack, 3);
-    debug_print(" fr_ms_target_bearing="); debug_print(fr_ms_target_bearing, 0);
-    debug_print(" fr_ms_cog="); debug_print(fr_ms_cog, 0);  
-    debug_print(" fr_ms_offset="); debug_print(fr_ms_offset);
-    debug_print(" fr_payload="); debug_print(fr_payload);  debug_print(" "); 
+    debug_serial_print("FrSky in RC 0x5009: ");   
+    debug_serial_print(" fr_ms_seq="); debug_serial_print(fr_ms_seq);
+    debug_serial_print(" fr_ms_dist="); debug_serial_print(fr_ms_dist);
+    debug_serial_print(" fr_ms_xtrack="); debug_serial_print(fr_ms_xtrack, 3);
+    debug_serial_print(" fr_ms_target_bearing="); debug_serial_print(fr_ms_target_bearing, 0);
+    debug_serial_print(" fr_ms_cog="); debug_serial_print(fr_ms_cog, 0);  
+    debug_serial_print(" fr_ms_offset="); debug_serial_print(fr_ms_offset);
+    debug_serial_print(" fr_payload="); debug_serial_print(fr_payload);  debug_serial_print(" "); 
     DisplayPayload(fr_payload);         
-    debug_println();      
+    debug_serial_println();      
   #endif
 
   bit32Pack(fr_ms_seq, 0, 10);    //  WP number
@@ -3092,17 +3063,17 @@ uint8_t sv_chcnt = 8;
 
   #if defined Frs_Debug_All || defined Frs_Debug_Servo
     ShowPeriod(0);  
-    debug_print("FrSky in Servo_Raw 0x50F1: ");  
-    debug_print(" sv_chcnt="); debug_print(sv_chcnt); 
-    debug_print(" sv_count="); debug_print(sv_count); 
-    debug_print(" chunk="); debug_print(chunk);
-    debug_print(" fr_sv1="); debug_print(fr_sv[1]);
-    debug_print(" fr_sv2="); debug_print(fr_sv[2]);
-    debug_print(" fr_sv3="); debug_print(fr_sv[3]);   
-    debug_print(" fr_sv4="); debug_print(fr_sv[4]); 
-    debug_print(" fr_payload="); debug_print(fr_payload);  debug_print(" "); 
+    debug_serial_print("FrSky in Servo_Raw 0x50F1: ");  
+    debug_serial_print(" sv_chcnt="); debug_serial_print(sv_chcnt); 
+    debug_serial_print(" sv_count="); debug_serial_print(sv_count); 
+    debug_serial_print(" chunk="); debug_serial_print(chunk);
+    debug_serial_print(" fr_sv1="); debug_serial_print(fr_sv[1]);
+    debug_serial_print(" fr_sv2="); debug_serial_print(fr_sv[2]);
+    debug_serial_print(" fr_sv3="); debug_serial_print(fr_sv[3]);   
+    debug_serial_print(" fr_sv4="); debug_serial_print(fr_sv[4]); 
+    debug_serial_print(" fr_payload="); debug_serial_print(fr_payload);  debug_serial_print(" "); 
     DisplayPayload(fr_payload);
-    debug_println();             
+    debug_serial_println();             
   #endif
 
   sv_count += 4; 
@@ -3117,13 +3088,13 @@ void Pack_VFR_Hud_50F2(uint16_t id) {
 
   #if defined Frs_Debug_All || defined Frs_Debug_Hud
     ShowPeriod(0);  
-    debug_print("FrSky in Hud 0x50F2: ");   
-    debug_print(" fr_air_spd="); debug_print(fr_air_spd);
-    debug_print(" fr_throt="); debug_print(fr_throt);
-    debug_print(" fr_bar_alt="); debug_print(fr_bar_alt);
-    debug_print(" fr_payload="); debug_print(fr_payload);  debug_print(" "); 
+    debug_serial_print("FrSky in Hud 0x50F2: ");   
+    debug_serial_print(" fr_air_spd="); debug_serial_print(fr_air_spd);
+    debug_serial_print(" fr_throt="); debug_serial_print(fr_throt);
+    debug_serial_print(" fr_bar_alt="); debug_serial_print(fr_bar_alt);
+    debug_serial_print(" fr_payload="); debug_serial_print(fr_payload);  debug_serial_print(" "); 
     DisplayPayload(fr_payload);
-    debug_println();             
+    debug_serial_println();             
   #endif
   
   fr_air_spd = prep_number(roundf(fr_air_spd), 2, 1);  
@@ -3164,11 +3135,11 @@ void Pack_Rssi_F101(uint16_t id) {          // data id 0xF101 RSSI tell LUA scri
 
   #if defined Frs_Debug_All || defined Debug_Rssi
     ShowPeriod(0);    
-    debug_print("FrSky in Rssi 0x5F101: ");   
-    debug_print(" fr_rssi="); debug_print(fr_rssi);
-    debug_print(" fr_payload="); debug_print(fr_payload);  debug_print(" "); 
+    debug_serial_print("FrSky in Rssi 0x5F101: ");   
+    debug_serial_print(" fr_rssi="); debug_serial_print(fr_rssi);
+    debug_serial_print(" fr_payload="); debug_serial_print(fr_payload);  debug_serial_print(" "); 
     DisplayPayload(fr_payload);
-    debug_println();             
+    debug_serial_println();             
   #endif
 
   sr.id = id;
@@ -3275,13 +3246,13 @@ uint16_t prep_number(int32_t number, uint8_t digits, uint8_t power)
     } else if ((digits == 2) && (power == 2)) { // number encoded on 9 bits: 7 bits for digits + 2 for 10^power
         if (abs_number < 100) {
             res = abs_number<<2;
-         //   debug_print("abs_number<100  ="); debug_print(abs_number); debug_print(" res="); debug_print(res);
+         //   debug_serial_print("abs_number<100  ="); debug_serial_print(abs_number); debug_serial_print(" res="); debug_serial_print(res);
         } else if (abs_number < 1000) {
             res = ((uint8_t)roundf(abs_number * 0.1f)<<2)|0x1;
-         //   debug_print("abs_number<1000  ="); debug_print(abs_number); debug_print(" res="); debug_print(res);
+         //   debug_serial_print("abs_number<1000  ="); debug_serial_print(abs_number); debug_serial_print(" res="); debug_serial_print(res);
         } else if (abs_number < 10000) {
             res = ((uint8_t)roundf(abs_number * 0.01f)<<2)|0x2;
-          //  debug_print("abs_number<10000  ="); debug_print(abs_number); debug_print(" res="); debug_print(res);
+          //  debug_serial_print("abs_number<10000  ="); debug_serial_print(abs_number); debug_serial_print(" res="); debug_serial_print(res);
         } else if (abs_number < 127000) {
             res = ((uint8_t)roundf(abs_number * 0.001f)<<2)|0x3;
         } else { // transmit max possible value (0x7F x 10^3 = 127000)
@@ -3347,170 +3318,9 @@ struct Battery bat2     = {
 
 //=================================================================================================  
 void DisplayByte(byte b) {
-  if (b<=0xf) ;debug_print("0");
-  debug_print(String(b,HEX));
-  debug_print(" ");
-}
-//=================================================================================================  
-
-void PrintMavBuffer(const void *object){
-
-    const unsigned char * const bytes = static_cast<const unsigned char *>(object);
-  int j;
-
-uint8_t   tl;
-
-uint8_t mavNum;
-
-//Mavlink 1 and 2
-uint8_t mav_magic;               // protocol magic marker
-uint8_t mav_len;                 // Length of payload
-
-//uint8_t mav_incompat_flags;    // MAV2 flags that must be understood
-//uint8_t mav_compat_flags;      // MAV2 flags that can be ignored if not understood
-
-//uint8_t mav_seq;                // Sequence of packet
-//uint8_t mav_sysid;            // ID of message sender system/aircraft
-//uint8_t mav_compid;           // ID of the message sender component
-//uint8_t mav_msgid;            
-/*
-uint8_t mav_msgid_b1;           ///< first 8 bits of the ID of the message 0:7; 
-uint8_t mav_msgid_b2;           ///< middle 8 bits of the ID of the message 8:15;  
-uint8_t mav_msgid_b3;           ///< last 8 bits of the ID of the message 16:23;
-uint8_t mav_payload[280];      ///< A maximum of 255 payload bytes
-uint16_t mav_checksum;          ///< X.25 CRC
-*/
-
-  
-  if ((bytes[0] == 0xFE) || (bytes[0] == 0xFD)) {
-    j = -2;   // relative position moved forward 2 places
-  } else {
-    j = 0;
-  }
-   
-  mav_magic = bytes[j+2];
-  if (mav_magic == 0xFE) {  // Magic / start signal
-    mavNum = 1;
-  } else {
-    mavNum = 2;
-  }
-/* Mav1:   8 bytes header + payload
- * magic
- * length
- * sequence
- * sysid
- * compid
- * msgid
- */
-  
-  if (mavNum == 1) {
-    debug_print("mav1: /");
-
-    if (j == 0) {
-      DisplayByte(bytes[0]);   // CRC1
-      DisplayByte(bytes[1]);   // CRC2
-      debug_print("/");
-      }
-    mav_magic = bytes[j+2];   
-    mav_len = bytes[j+3];
- //   mav_incompat_flags = bytes[j+4];;
- //   mav_compat_flags = bytes[j+5];;
- //   mav_seq = bytes[j+6];
- //   mav_sysid = bytes[j+7];
- //   mav_compid = bytes[j+8];
- //   mav_msgid = bytes[j+9];
-
-    //debug_print(TimeString(millis()/1000)); debug_print(": ");
-  
-    /*debug_print("seq="); debug_print(mav_seq); debug_print("\t"); 
-    debug_print("len="); debug_print(mav_len); debug_print("\t"); 
-    debug_print("/");
-    for (int i = (j+2); i < (j+10); i++) {  // Print the header
-      DisplayByte(bytes[i]); 
-    }
-    
-    debug_print("  ");
-    debug_print("#");
-    debug_print(mav_msgid);
-    if (mav_msgid < 100) debug_print(" ");
-    if (mav_msgid < 10)  debug_print(" ");
-    debug_print("\t");*/
-    
-    tl = (mav_len+10);                // Total length: 8 bytes header + Payload + 2 bytes CRC
- //   for (int i = (j+10); i < (j+tl); i++) {  
-    for (int i = (j+10); i <= (tl); i++) {    
-     DisplayByte(bytes[i]);     
-    }
-    if (j == -2) {
-      debug_print("//");
-      DisplayByte(bytes[mav_len + 8]); 
-      DisplayByte(bytes[mav_len + 9]); 
-      }
-    debug_println("//");  
-  } else {
-
-/* Mav2:   10 bytes
- * magic
- * length
- * incompat_flags
- * mav_compat_flags 
- * sequence
- * sysid
- * compid
- * msgid[11] << 16) | [10] << 8) | [9]
- */
-    
-    debug_print("mav2:  /");
-    if (j == 0) {
-      DisplayByte(bytes[0]);   // CRC1
-      DisplayByte(bytes[1]);   // CRC2 
-      debug_print("/");
-    }
-    mav_magic = bytes[2]; 
-    mav_len = bytes[3];
-//    mav_incompat_flags = bytes[4]; 
-//    mav_compat_flags = bytes[5];
-//    mav_seq = bytes[6];
-//    mav_sysid = bytes[7];
-//    mav_compid = bytes[8]; 
-//    mav_msgid = (bytes[11] << 16) | (bytes[10] << 8) | bytes[9]; 
-
-    //debug_print(TimeString(millis()/1000)); debug_print(": ");
-
-    /*debug_print("seq="); debug_print(mav_seq); debug_print("\t"); 
-    debug_print("len="); debug_print(mav_len); debug_print("\t"); 
-    debug_print("/");
-    for (int i = (j+2); i < (j+12); i++) {  // Print the header
-     DisplayByte(bytes[i]); 
-    }
-
-    debug_print("  ");
-    debug_print("#");
-    debug_print(mav_msgid);
-    //if (mav_msgid < 100) debug_print(" ");
-    //if (mav_msgid < 10)  debug_print(" ");
-    debug_print("\t");*/
-
- //   tl = (mav_len+27);                // Total length: 10 bytes header + Payload + 2B CRC +15 bytes signature
-    tl = (mav_len+22);                  // This works, the above does not!
-    for (int i = (j+12); i < (tl+j); i++) {   
-       if (i == (mav_len + 12)) {
-        debug_print("/");
-      }
-      if (i == (mav_len + 12 + 2+j)) {
-        debug_print("/");
-      }
-      DisplayByte(bytes[i]); 
-    }
-    debug_println("");
-  }
-
-   debug_print("Raw: ");
-   for (int i = 0; i < 40; i++) {  //  unformatted
-      DisplayByte(bytes[i]); 
-    }
-   debug_println("");
-  
+  if (b<=0xf) ;debug_serial_print("0");
+  debug_serial_print(String(b,HEX));
+  debug_serial_print(" ");
 }
 //=================================================================================================  
 float RadToDeg (float _Rad) {
@@ -3521,6 +3331,7 @@ float DegToRad (float _Deg) {
   return _Deg * PI / 180;  
 }
 //=================================================================================================  
+#if defined Mav_Debug_All || defined Mav_Debug_StatusText
 String MavSeverity(uint8_t sev) {
  switch(sev) {
     
@@ -3618,9 +3429,22 @@ String PX4FlightModeName(uint8_t main, uint8_t sub) {
       break;                                          
    }
 }
+#endif
 //=================================================================================================  
 uint8_t PX4FlightModeNum(uint8_t main, uint8_t sub) {
- switch(main) {
+  if (main < 10) {
+    if (main < 4) {
+      return main - 1;
+    } else if (main > 4) {
+      return main - 2;
+    } else {
+      if (sub < 10) {
+        return sub + 11;
+      } else return 31;
+    }
+  } else return 11;
+
+ /*switch(main) {
     
     case 1:
       return 0;  // MANUAL 
@@ -3665,26 +3489,24 @@ uint8_t PX4FlightModeNum(uint8_t main, uint8_t sub) {
       return 7;  //  SIMPLE 
     default:
       return 11;  //  UNKNOWN                                        
-   }
+   }*/
 }
 
 //=================================================================================================  
+#if defined Frs_Debug_All
 void ShowPeriod(bool LF) {
-  /*debug_print("Period ms=");
+  debug_serial_print("Period ms=");
   now_millis=millis();
-  debug_print(now_millis-prev_millis);
+  debug_serial_print(now_millis-prev_millis);
   if (LF) {
-    debug_print("\t\n");
+    debug_serial_print("\t\n");
   } else {
-   debug_print("\t");
+   debug_serial_print("\t");
   }
     
-  prev_millis=now_millis;*/
+  prev_millis=now_millis;
 }
-
-//=================================================================================================   
-//                   E N D   O F   O L E D   S U P P O R T   -   ESP Only - for now
-//================================================================================================= 
+#endif
 
 uint32_t Get_Volt_Average1(uint16_t mV)  {
 
@@ -3788,108 +3610,3 @@ float Total_mWh2() {                                     // Total energy consume
   return bat2.tot_mAh * (bat2.tot_volts / bat2.samples);
 }
 //=================================================================================================  
-uint32_t GetConsistent(uint8_t rxPin) {
-  uint32_t t_baud[5];
-
-  while (true) {  
-    t_baud[0] = SenseUart(rxPin);
-    delay(10);
-    t_baud[1] = SenseUart(rxPin);
-    delay(10);
-    t_baud[2] = SenseUart(rxPin);
-    delay(10);
-    t_baud[3] = SenseUart(rxPin);
-    delay(10);
-    t_baud[4] = SenseUart(rxPin);
-    #if defined Debug_All || defined Debug_Baud
-      debug_print("  t_baud[0]="); debug_print(t_baud[0]);
-      debug_print("  t_baud[1]="); debug_print(t_baud[1]);
-      debug_print("  t_baud[2]="); debug_print(t_baud[2]);
-      debug_print("  t_baud[3]="); debug_println(t_baud[3]);
-    #endif  
-    if (t_baud[0] == t_baud[1]) {
-      if (t_baud[1] == t_baud[2]) {
-        if (t_baud[2] == t_baud[3]) { 
-          if (t_baud[3] == t_baud[4]) {   
-            #if defined Debug_All || defined Debug_Baud    
-              debug_print("Consistent baud found="); debug_println(t_baud[3]); 
-            #endif   
-            return t_baud[3]; 
-          }          
-        }
-      }
-    }
-  }
-}
-//=================================================================================================  
-uint32_t SenseUart(uint8_t  rxPin) {
-
-uint32_t pw = 999999;  //  Pulse width in uS
-uint32_t min_pw = 999999;
-uint32_t su_baud = 0;
-const uint32_t su_timeout = 5000; // uS !
-
-#if defined Debug_All || defined Debug_Baud
-  debug_print("rxPin ");  debug_println(rxPin);
-#endif  
-
-  while(digitalRead(rxPin) == 1){ }  // wait for low bit to start
-  
-  for (int i = 1; i <= 10; i++) {            // 1 start bit, 8 data and 1 stop bit
-    pw = pulseIn(rxPin,LOW, su_timeout);     // default timeout 1000mS! Returns the length of the pulse in uS
-    if (pw !=0) {
-      min_pw = (pw < min_pw) ? pw : min_pw;  // Choose the lowest
-    } else {
-       return 0;  // timeout - no telemetry
-    }
-  }
- 
-  #if defined Debug_All || defined Debug_Baud
-    debug_print("pw="); debug_print(pw); debug_print("  min_pw="); debug_println(min_pw);
-  #endif
-
-  switch(min_pw) {   
-    case 1:     
-     su_baud = 921600;
-      break;
-    case 2:     
-     su_baud = 460800;
-      break;     
-    case 4 ... 11:     
-     su_baud = 115200;
-      break;
-    case 12 ... 19:  
-     su_baud = 57600;
-      break;
-     case 20 ... 28:  
-     su_baud = 38400;
-      break; 
-    case 29 ... 39:  
-     su_baud = 28800;
-      break;
-    case 40 ... 59:  
-     su_baud = 19200;
-      break;
-    case 60 ... 79:  
-     su_baud = 14400;
-      break;
-    case 80 ... 149:  
-     su_baud = 9600;
-      break;
-    case 150 ... 299:  
-     su_baud = 4800;
-      break;
-     case 300 ... 599:  
-     su_baud = 2400;
-      break;
-     case 600 ... 1199:  
-     su_baud = 1200;  
-      break;                        
-    default:  
-     su_baud = 0;    // no signal        
- }
-
- return su_baud;
-} 
-
-//=================================================================================

@@ -184,6 +184,18 @@ HardwareSerial Serial9x(1); //  attached 900x device is on 'Serial' and instanti
 MySerial *SmartSerial = new MySerial(&Serial9x); 
 File f; // global handle use for the Xmodem upload
 
+
+void flush_rx_serial() {
+    while (Serial.available() ) { 
+        #ifdef DEBUG_DISABLE
+        Serial.read();
+        #else
+        char t = Serial.read();  
+        debug_serial_print(t); 
+        #endif
+    } // flush read buffer upto this 
+}
+
 //-------------------------------------------
 int r900x_booloader_mode_sync() { 
 
@@ -194,7 +206,7 @@ debug_serial_println(F("r900x_booloader_mode_sync()\n"));
       int ok = SmartSerial->expect_multi3("ChipID:", "UPLOAD", "XXXXXXXXXXX",500); // we're really looking for a ChipID, but UPLOAD will do too, and XXX is an unused parameter
       if ( ok > 0 ) { 
           debug_serial_println(F("\t\tGOT ChipID/UPLOAD Response from radio.\n"));
-          while (Serial.available() ) { Serial.read(); } // flush read buffer upto this point.
+          flush_rx_serial();
           return ok;
       } else { 
           debug_serial_println(F("\t\tFAILED-TO-GET ChipID/UPLOAD Response from radio.\n"));
@@ -221,7 +233,7 @@ bool enter_command_mode() {
 
     int already_commmand_mode_test = SmartSerial->expect_multi3("ATI","RFD SiK","RFD900X",250); // look for any of these
 
-    while (Serial.available() ) { Serial.read(); } // flush read buffer upto this point.
+    flush_rx_serial();
 
     if (  already_commmand_mode_test <= 0 ) {  // no match on the above 3 strings means ...
 
@@ -239,7 +251,7 @@ bool enter_command_mode() {
         int ok2 = SmartSerial->expect_multi3("OK","+++","XXXXX",1100); // look for +++ takes 50ms, OK might take 1000 ?
         if ( ok2 == 1 ) { 
             debug_serial_println(F("GOT OK Response from radio.\n"));
-            while (Serial.available() ) { Serial.read(); } // flush read buffer upto this point.
+            flush_rx_serial();
             return true;
         }
         else if ( ok2 == 2 ) { 
@@ -247,7 +259,7 @@ bool enter_command_mode() {
             debug_serial_println(F("radio is already_in_cmd_mode2, continuing... sending RN.\n"));
             Serial.write("\r\n"); // terminate the +++ command.
             Serial.flush(); // output buffer flush
-            //while (Serial.available() ) { Serial.read(); } // flush read buffer upto this point.
+            //flush_rx_serial();
             //goto already_in_cmd_mode2;
             return true;
         } else { 
@@ -288,6 +300,7 @@ bool enter_command_mode_with_retries() {
     }
     return false;
 }
+
 //-------------------------------------------
 // returns -1 on major error, positive number of params fetched on 'success'
 int r900x_getparams(String filename, bool factory_reset_first) { 
@@ -310,14 +323,11 @@ int r900x_getparams(String filename, bool factory_reset_first) {
     Serial.flush(); // output buffer flush
     delay(500); // give a just booted radio tim to be ready.
 
-    while (Serial.available() ) { 
-        char t = Serial.read();  
-        debug_serial_print(t); 
-    } // flush read buffer upto this 
+    flush_rx_serial();
 
     //  read AT params from radio , and write to a file in spiffs.
     String prefix = "AT";
-    if (filename == "/r900x_params_remote.txt" ) {prefix = "RT";}
+    if (filename == RFD_REM_PAR ) {prefix = "RT";}
 
     // untested- implement factory_reset_first boolean
     if ( factory_reset_first ) { 
@@ -328,19 +338,19 @@ int r900x_getparams(String filename, bool factory_reset_first) {
         Serial9x.flush(); // output buffer flush
         bool b = SmartSerial->expect("OK",100); 
         (void)b; // compiler unsed variable warning otherwise 
-        while (Serial9x.available() ) { Serial9x.read();  } // flush read buffer upto this point and discard
+        flush_rx_serial();
 
         String factorycmd2 = prefix+"&W\r\n"; 
         Serial9x.write(factorycmd2.c_str());
         Serial9x.flush(); // output buffer flush
         bool b2 = SmartSerial->expect("OK",100); 
         (void)b2; // compiler unsed variable warning otherwise 
-        while (Serial9x.available() ) { Serial9x.read();  } // flush read buffer upto this point and discard
+        flush_rx_serial();
 
         debug_serial_print(F("...attempted factory reset.\n"));
     }
 
-    if (filename == "/r900x_params.txt" ) { 
+    if (filename == RFD_LOC_PAR ) { 
 
         r900x_savesingle_param_and_verify_more("AT", "S21", "1", false);
 
@@ -368,7 +378,7 @@ int r900x_getparams(String filename, bool factory_reset_first) {
             }
         } while (param_save_counter < 5);    
 
-        while (Serial9x.available() ) { Serial9x.read();  } // flush read buffer upto this point and discard    
+        flush_rx_serial();    
     }
 
     // TODO get version info here from local and/or remote modem with an AT command
@@ -405,7 +415,7 @@ int r900x_getparams(String filename, bool factory_reset_first) {
 
         // tack encryption key onto the end of the param file, if it exists, instead of read from remote radio
 		// as we can't do that right now. - TODO.
-        File e = SPIFFS.open("/key.txt", "r");
+        File e = SPIFFS.open(RFD_ENC_KEY, "r");
         String estr = "&E:ENCRYPTION_KEY="+e.readString();// entire file, includes /r/n on end.
         
         if (estr.length() > 30 && e) { // basic check, file should exist and have at least 30 bytes in it to be plausible
@@ -445,8 +455,8 @@ int r900x_getparams(String filename, bool factory_reset_first) {
 				debug_serial_println(vers);
 
 				// save version string to a file for later use by the webserver to present to the user.
-				String vf = "/r900x_version.txt";
-				if (filename == "/r900x_params_remote.txt" ) {vf = "/r900x_version_remote.txt";}
+				String vf = RFD_LOC_VER;
+				if (filename == RFD_REM_PAR ) {vf = RFD_REM_VER;}
 				File v = SPIFFS.open(vf, "w"); 
 				v.print(vers);
 				v.close();
@@ -483,9 +493,9 @@ int r900x_readsingle_param_impl( String prefix, String ParamID ) {
 
 
     // shortcurcuit for &E etc
-    if ( ParamID == "&E" ) return -4; // not readable, for now. 
-    if ( ParamID == "&R" ) return -4; // not readable, for now. 
-    if ( ParamID == "&F" ) return -4; // not readable, for now. 
+    if ( ParamID == F("&E") ) return -4; // not readable, for now. 
+    if ( ParamID == F("&R") ) return -4; // not readable, for now. 
+    if ( ParamID == F("&F") ) return -4; // not readable, for now. 
 
     debug_serial_println(cmd); // debug only
 
@@ -535,7 +545,7 @@ int r900x_readsingle_param(String prefix, String ParamID) {
     if ( ! enter_command_mode_with_retries() ) { return -1 ; } 
 
     debug_serial_println(F("Z-------flush---------------"));
-    while (Serial.available() ) { Serial.read(); } // flush read buffer upto this point.
+    flush_rx_serial();
 
     // might return negative number on error.... so add one ghetto retry here as it already has some retrues...
     int retval =  r900x_readsingle_param_impl( prefix, ParamID );
@@ -557,7 +567,7 @@ int r900x_readsingle_param(String prefix, String ParamID) {
         if ( ! enter_command_mode_with_retries() ) { return retval ; } 
 
         debug_serial_println(F("Q-------flush---------------"));
-        //while (Serial.available() ) { Serial.read(); } // flush read buffer upto this point.
+        //flush_rx_serial();
 
         // last try, might return negative number on error, just return it.. 
         return r900x_readsingle_param_impl( prefix, ParamID );
@@ -583,7 +593,7 @@ int r900x_savesingle_param_and_verify_more(String prefix, String ParamID, String
     if ( ! enter_command_mode_with_retries() ) { return -1 ; } 
 
     debug_serial_println(F("X-------flush---------------"));
-    while (Serial.available() ) { Serial.read(); } // flush read buffer upto this point.
+    flush_rx_serial();
 
     // might return negative number on error.... ( such as &E being empty, or &R not being standard )
     int value = r900x_readsingle_param_impl( prefix, ParamID );
@@ -611,8 +621,8 @@ int r900x_savesingle_param_and_verify_more(String prefix, String ParamID, String
         String ParamCMD= prefix+ParamID+"="+ParamVAL+"\r\n";
 
             // overwride for special case/s ( very rare ) 
-            if (( prefix == "RT" ) && ( ParamID == "&R" )) ParamCMD = prefix+ParamID+"\r\n";
-            if ( ParamID == "&F" ) ParamCMD = prefix+ParamID+"\r\n";
+            if (( prefix == F("RT") ) && ( ParamID == F("&R") )) ParamCMD = prefix+ParamID+"\r\n";
+            if ( ParamID == F("&F") ) ParamCMD = prefix+ParamID+"\r\n";
 
         debug_serial_println(ParamCMD); // debug only.
         Serial.write(ParamCMD.c_str());
@@ -621,12 +631,12 @@ int r900x_savesingle_param_and_verify_more(String prefix, String ParamID, String
         debug_serial_println(F("7#############################################################"));
         if ( ok ) { 
             debug_serial_println(F("GOT OK from radio.\n"));
-            while (Serial.available() ) { Serial.read(); } // flush read buffer upto this point.
+            flush_rx_serial();
         } else { 
 
             // HACK. we don't get an OK reply from RT&E=XXXXXXXXXXXXX, just an echo 
             //of the command and a blat of suddenly unreadable bytes and the 250ms timeout.
-            //if (( ParamID == "&E" ) && ( param_write_counter > 8 ) ) { 
+            //if (( ParamID == F("&E") ) && ( param_write_counter > 8 ) ) { 
             //   return 3; // positve number = success.
             //}
 
@@ -663,7 +673,7 @@ int r900x_savesingle_param_and_verify_more(String prefix, String ParamID, String
         bool ok = SmartSerial->expect("OK",1000); 
         if ( ok ) { 
             debug_serial_println(F("GOT OK Response from radio.\n"));
-            //while (Serial.available() ) { Serial.read(); } // flush read buffer upto this point.
+            //flush_rx_serial();
 
             // save params AND take out of command mode via a quick reboot
             String rebootcmd = prefix+"Z\r\n"; // "ATZ\r\n"
@@ -673,7 +683,7 @@ int r900x_savesingle_param_and_verify_more(String prefix, String ParamID, String
 
             delay(150);
             // TODO ? ok = SmartSerial->expect("RTZ",200);
-            while (Serial.available() ) { Serial.read(); } // flush read buffer upto this point. - ie 'RTZ' response
+            flush_rx_serial(); // - ie 'RTZ' response
 
         } else { 
 
@@ -707,8 +717,8 @@ debug_serial_println(F("r900x_saveparams()\n"));
 
     if ( ! enter_command_mode_with_retries() ) { return -1; } 
  
-    String localfilename = "/r900x_params.txt";
-    String remotefilename = "/r900x_params_remote.txt";
+    String localfilename = RFD_LOC_PAR;
+    String remotefilename = RFD_REM_PAR;
 
     File f = SPIFFS.open(filename, "r");    
 
@@ -732,8 +742,8 @@ debug_serial_println(F("r900x_saveparams()\n"));
 
         String line = f.readStringUntil('\n'); // read a line, wait max 100ms.
 
-        if (line.substring(0,3) == "ATI" ) { continue; } // ignore this first line.
-        if (line.substring(0,3) == "RTI" ) { continue; } // ignore this first line.
+        if (line.substring(0,3) == F("ATI") ) { continue; } // ignore this first line.
+        if (line.substring(0,3) == F("RTI") ) { continue; } // ignore this first line.
 
         //if (line == "\r\n" ) { continue; } // ignore blank line/s
         
@@ -759,7 +769,7 @@ debug_serial_println(F("r900x_saveparams()\n"));
         String ParamVAL = line.substring(equals_offset+1,eol_offset); 
 
         // if its an ATS2 or RTS0 command, skipp it, as we don't allows writes to S0
-        if ( ParamID == "S0" ) { 
+        if ( ParamID == F("S0") ) { 
             debug_serial_println(F("skipping S0, as we don't write it."));
             continue; 
         }
@@ -779,7 +789,7 @@ debug_serial_println(F("r900x_saveparams()\n"));
         bool ok = SmartSerial->expect("OK",200); // typically we get a remote response in under 150ms, local response under 30
         if ( ok ) { 
             debug_serial_println(F("GOT OK from radio.\n"));
-            while (Serial.available() ) { Serial.read(); } // flush read buffer upto this point.
+            flush_rx_serial();
         } else { 
 
             debug_serial_println(F("FALED-TO-GET OK Response from radio. - retrying:\n"));
@@ -812,7 +822,7 @@ debug_serial_println(F("r900x_saveparams()\n"));
     bool ok = SmartSerial->expect("OK",2000); 
     if ( ok ) { 
         debug_serial_println(F("GOT OK Response from radio.\n"));
-        //while (Serial.available() ) { Serial.read(); } // flush read buffer upto this point.
+        //flush_rx_serial();
 
           // take out of command mode via a quick reboot
             String rebootcmd = prefix+"Z\r\n"; // "ATZ\r\n"
@@ -953,14 +963,14 @@ void r900x_setup(bool reflash) { // if true. it will attempt to reflash ( and fa
     Serial.begin(baudrate); // // get params from modem with command-mode, without talking ot the bootloader, at stock firmware baud rate.
 
     // getting fresh parameters after every bootup
-    r900x_getparams("/r900x_params.txt",false); 
+    r900x_getparams(RFD_LOC_PAR,false); 
 
-    File p2 = SPIFFS.open("/r900x_params_remote.txt", "r");
+    File p2 = SPIFFS.open(RFD_REM_PAR, "r");
 
     if ( !p2 ) {
         debug_serial_println(F("can't see remote parameters files, re-getting in 2 secs...."));
         delay(2000);
-        r900x_getparams("/r900x_params_remote.txt",false); 
+        r900x_getparams(RFD_REM_PAR,false); 
     } 
 
     f = SPIFFS.open(BOOTLOADERNAME, "r");
@@ -1072,10 +1082,7 @@ void r900x_setup(bool reflash) { // if true. it will attempt to reflash ( and fa
         delay(200);
 
         //debug_serial_print("r900x_upload anyway attempt....\n--#");
-        while (Serial.available() ) { 
-            char t = Serial.read();  
-            debug_serial_print(t); 
-        } // flush read buffer upto this point.
+        flush_rx_serial();
         debug_serial_println("#--");
 
         // if we already saw ChipID or UPLOAD output, don't try to do 
@@ -1091,11 +1098,7 @@ void r900x_setup(bool reflash) { // if true. it will attempt to reflash ( and fa
 
             delay(200);
 
-            while (Serial.available() ) { 
-                char t = Serial.read();  
-                debug_serial_print(t); 
-            } // flush read buffer upto this point.
-
+            flush_rx_serial();
         }
 
         // UPLOAD COMMAND EXPECTS 'Ready' string
@@ -1111,10 +1114,7 @@ void r900x_setup(bool reflash) { // if true. it will attempt to reflash ( and fa
             { 
                 // and then some \r\n precisely.
                 debug_serial_println(F("\t\tGOT UPLOAD/Ready Response from radio.\n"));
-                while (Serial.available() ) { 
-                    char t = Serial.read();  
-                    debug_serial_print(t); 
-                } // flush read buffer upto this point.   
+                flush_rx_serial();
 
                 //  xmodem stuff...
                 debug_serial_println(F("bootloader handshake done"));
@@ -1156,30 +1156,24 @@ void r900x_setup(bool reflash) { // if true. it will attempt to reflash ( and fa
         Serial.flush();
         debug_serial_println(F("\t\tBOOTNEW\r\n")); 
 
-        while (Serial.available() ) { 
-            char t = Serial.read();  
-            debug_serial_print(t); 
-        } // flush read buffer upto this point.    
+        flush_rx_serial();
     }
 
     baudrate = getWorld()->getParameters()->getUartBaudRate();
     debug_serial_print("Loading baud from FLASH: " + String(baudrate));
     debug_serial_println("Serial.begin("+String(baudrate)+");");
     Serial.begin(baudrate); // // get params from modem with command-mode, without talking ot the bootloader, at stock firmware baud rate.
-    while (Serial.available() ) { 
-        char t = Serial.read();  
-        debug_serial_print(t); 
-    } // flush read buffer upto this point, displaying it for posterity.
+    flush_rx_serial();
     Serial.flush();
 
     //we put a AT&F here to factory-reset the modem after the reflash and before we get params from it
     
     if (reflash ) { 
-        r900x_getparams("/r900x_params_remote.txt",true);  // true = reset to factory defaults before reading params
-        r900x_getparams("/r900x_params.txt",true);         // true = reset to factory defaults before reading params
+        r900x_getparams(F(RFD_REM_PAR),true);  // true = reset to factory defaults before reading params
+        r900x_getparams(RFD_LOC_PAR,true);         // true = reset to factory defaults before reading params
     } else { 
-        r900x_getparams("/r900x_params_remote.txt",false);  
-        r900x_getparams("/r900x_params.txt",false);  
+        r900x_getparams(RFD_REM_PAR,false);  
+        r900x_getparams(RFD_LOC_PAR,false);  
     }
 
     f.close();
@@ -1277,8 +1271,8 @@ void setup() {
 
 #endif
 
-    Logger.begin(2048);
-    SoftLogger.begin(2048);
+    //Logger.begin(2048);
+    //SoftLogger.begin(2048);
 
     // make sure programmed with correct spiffs settings.
     realSize = String(ESP.getFlashChipRealSize());
@@ -1587,11 +1581,11 @@ void loop() {
             } while (tries < 5);
         }
 
-        SPIFFS.remove("/key.txt");
-        SPIFFS.remove("/r900x_params_remote.txt");
-        SPIFFS.remove("/r900x_params.txt");
-        SPIFFS.remove("/r900x_version_remote.txt");
-        SPIFFS.remove("/r900x_version.txt");
+        SPIFFS.remove(RFD_ENC_KEY);
+        SPIFFS.remove(RFD_REM_PAR);
+        SPIFFS.remove(RFD_LOC_PAR);
+        SPIFFS.remove(RFD_REM_VER);
+        SPIFFS.remove(RFD_LOC_VER);
         
         LEDState = 1;
         digitalWrite(LEDGPIO,LEDState);

@@ -24,7 +24,7 @@ void frsky_handle_mavlink(mavlink_message_t * msg);
 #define frBaud                 57600    // S.Port baud setting - default 57600 
 
 // Do not enable for FlightDeck
-#define PlusVersion  // Added support for 0x5009 Mission WPs, 0x50F1 Servo_Channels, 0x50F2 VFR_Hud
+//#define PlusVersion  // Added support for 0x5009 Mission WPs, 0x50F1 Servo_Channels, 0x50F2 VFR_Hud
 
 //=================================================================================================
 //           D E F A U L T   T R A N S L A T I O N   M O D E   S E T T I N G S   
@@ -147,9 +147,9 @@ const uint16_t bat2_capacity = 0;
 //                              CHECK #define OPTIONS LOGIC
 //================================================================================================= 
 
-#if defined PlusVersion
+/*#if defined PlusVersion
   #define Request_Mission_Count_From_FC // Needed for yaapu's mission/waypoint script
-#endif
+#endif*/
 
 #if (not defined ESP32) && (not defined ESP8266)
   #if defined webSupport
@@ -300,7 +300,7 @@ const uint16_t bat2_capacity = 0;
 //================================================================================================= 
 
     //                         GPIO as per node mfu
-    static const uint8_t D0   = 16;   // SCL - optional
+    /*static const uint8_t D0   = 16;   // SCL - optional
     static const uint8_t D1   = 5;    // SDA - optional
     static const uint8_t D2   = 4;    // SPort half-duplex
     static const uint8_t D3   = 0;    // Flash
@@ -310,7 +310,7 @@ const uint16_t bat2_capacity = 0;
     static const uint8_t D7   = 13;   // CTS
     static const uint8_t D8   = 15;   // RTS
     static const uint8_t D9   = 3;    // RXD0
-    static const uint8_t D10  = 1;    // TXD0
+    static const uint8_t D10  = 1;    // TXD0*/
 
     #define MavStatusLed  D7        // Mavlink Status LED
     #define BufStatusLed  99        // None

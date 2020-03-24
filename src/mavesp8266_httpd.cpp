@@ -64,7 +64,7 @@ const char PROGMEM kNOTFOUND[]   = "<!DOCTYPE html><html><head><title>TXMOD</tit
 const char PROGMEM kBADARG[]     = "BAD ARGS";
 const char PROGMEM kAPPJSON[]    = "application/json";
 
-const char PROGMEM embbeded_index[] = R"V0G0N(
+/*const char PROGMEM embbeded_index[] = R"V0G0N(
 <!DOCTYPE html><html><head><title>TXMOD</title><meta name='viewport' content='initial-scale=1.0'><meta charset='utf-8'>
 <style>body{max-width:800px;width:90%;background-color:#f1f1f1;font-family:Verdana;margin:20px auto}h1 {font-weight:normal}h2{font-size:20px;font-weight:normal;margin:0 0 15px 0;width:100%}
 p {font-size:12px;font-weight:normal;padding:0 0 15px 0;margin:0}p:last-child{padding-bottom:0}.b {margin:0 0 15px 0;background-color: #ffffff;padding:15px}.hd{margin: 10px 0}.b a, .b a:hover, .b a:active, .b a:visited, .btn {background-color:transparent;font-size: 10px;color:#3C9BED;padding:5px 7px;margin:0 3px 3px 0;border: 1px solid #3C9BED;border-radius:5px;text-decoration:none;display:inline-block;}.b a:hover, .btn:hover {background-color:#D7EDFF;}
@@ -74,7 +74,7 @@ p {font-size:12px;font-weight:normal;padding:0 0 15px 0;margin:0}p:last-child{pa
 <div class='b'><h2>RFD900x Setup Wizard</h2><p>The wizard allows you the adjust internal and remote long-range radios settings.</p><a href='/wiz.htm'>Go to First Run Wizard!</a></div></div>
 <div class='cl h ct'><div class='b'><h2>Documentation</h2><p>Requires internet access</p><a href='http://ardupilot.org'>ArduPilot Website</a><a href='http://ardupilot.org/copter/docs/common-esp8266-telemetry.html'>ESP8266 WiFi Documentation</a><a href='https://github.com/RFDesign/mavesp8266'>TXMOD ESP8266 Source Code</a><a href='http://files.rfdesign.com.au/firmware/'>TXMOD Firmware Updates</a></div>
 <div class='b'><h2>Advanced options</h2><a href='/plist'>RFD900x Radio Settings</a><a href='/updatepage'>Update Firmware</a><a href='/edit'>View and edit <!-- some --> files in the SPIFFS filesystem</a></div>
-</div></body></html>)V0G0N";
+</div></body></html>)V0G0N";*/
 
 const char PROGMEM embbeded_index_minimal[] = R"V0G0N(
 <!DOCTYPE html><html><head><title>TXMOD</title><meta name='viewport' content='initial-scale=1.0'><meta charset='utf-8'><style>
@@ -228,7 +228,7 @@ void handle_upload_status() {
                 Update.printError(DEBUG_SERIAL);
             #endif
             success = false;
-            webServer.send(500, "text/plain", "500: could not create file -2");
+            webServer.send(500, kTEXTPLAIN, "500: could not create file -2");
         }
         #ifdef DEBUG_SERIAL
             //DEBUG_SERIAL.setDebugOutput(false);
@@ -298,11 +298,11 @@ String getContentType(String filename) {
   } else if (filename.endsWith(".gz")) {
     return "application/x-gzip";
   } else if (filename.endsWith(".txt")) {
-    return "text/plain";
+    return kTEXTPLAIN;
   } else if (filename.endsWith(".json")) {
     return "application/json";
   }
-  return "text/plain";
+  return kTEXTPLAIN;
 }
 
 	
@@ -358,7 +358,6 @@ bool handleFileRead(String path, uint minsize) {
 //---------------------------------------------------------------------------------
 static void handle_root()
 {
-    File cache = SPIFFS.open("/index.cache.htm", "w");
     String message = "";
     String int_rfd_sw_ver = "";
     String rem_rfd_sw_ver = "";
@@ -369,23 +368,23 @@ static void handle_root()
     extern IPAddress localIP;
 
     // try to open a version file for the 900x inside the TXPOLE, continue without it anyway.
-    File v = SPIFFS.open("/r900x_version.txt", "r");
+    File v = SPIFFS.open(RFD_LOC_VER, "r");
     if ( v ) { 
         int_rfd_sw_ver = v.readString();
         v.close();
     }
 
     // try to open a version file for the 900x outside the TXPOLE, continue without it anyway.
-    v = SPIFFS.open("/r900x_version_remote.txt", "r");
+    v = SPIFFS.open(RFD_REM_VER, "r");
     if ( v ) { 
         rem_rfd_sw_ver = v.readString();
         v.close();
     }
 
-    if ( realSize == "4194304" ) { 
+    if ( realSize == F("4194304") ) { 
         realSizeMB = "4MB";
     }
-    else if ( realSize == "2097152" ) { 
+    else if ( realSize == F("2097152") ) { 
         realSizeMB = "2MB";
     }
     else
@@ -443,7 +442,7 @@ static void handle_root()
     } 
     else
     {
-        message = embbeded_index;
+        message = embbeded_index_minimal;
     }
     
     for(int i = 0; i < 2; i++)
@@ -451,21 +450,8 @@ static void handle_root()
         message.replace(dictionary[i][0], dictionary[i][1]);
     }
 
-    cache.print(message); 
-    cache.close(); // close index.cache.htm
- 
-    // try to render /index.cache as-is, otherwise fallback to this more minimal static version... 
-    if (!handleFileRead("/index.cache.htm", 100)) {
-        message = embbeded_index_minimal;
-
-        for(int i = 0; i < 2; i++)
-        {
-            message.replace(dictionary[i][0], dictionary[i][1]);
-        }
-        setNoCacheHeaders();
-        webServer.send(200, FPSTR(kTEXTHTML), message);
-    }
-    
+    setNoCacheHeaders();
+    webServer.send(200, FPSTR(kTEXTHTML), message);    
 }
 
 
@@ -1004,7 +990,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
                  
                 if (w2.length() > 30 ) { // basic check, file should exist and have at least 30 bytes in it to be plausible
 
-                     File encfile = SPIFFS.open("/key.txt", "w");
+                     File encfile = SPIFFS.open(RFD_ENC_KEY, "w");
                      encfile.println(w2);
                      encfile.close();
                      debug_serial_println("Wrote Enc Key to /key.txt");
@@ -1237,10 +1223,10 @@ void handle_test_save() // accept updated param/s via POST, save them, then disp
 
     // PPM passthru check
     if (page == 3) {
-        bool w1 = webServer.arg("ppm_stat") == "yes"; // convert to int and back removes any whitespace and \r\n etc. 
+        bool w1 = webServer.arg("ppm_stat") == F("yes"); // convert to int and back removes any whitespace and \r\n etc. 
         String Sw1 = String(w1); 
  
-        if (webServer.arg("ppm_stat") == "yes") { 
+        if (webServer.arg("ppm_stat") == F("yes")) { 
             message = "SUCCESS PPM passthru works properly"; 
 		    setNoCacheHeaders(); 
 		    webServer.send(200, FPSTR(kTEXTHTML), message); 
@@ -1257,10 +1243,10 @@ void handle_test_save() // accept updated param/s via POST, save them, then disp
     //LEDs CHECK 
     if((page == 4) && webServer.hasArg("led_stat")) { 
         //ok = true; 
-        bool w1 = webServer.arg("led_stat") == "yes"; // convert to int and back removes any whitespace and \r\n etc. 
+        bool w1 = webServer.arg("led_stat") == F("yes"); // convert to int and back removes any whitespace and \r\n etc. 
         String Sw1 = String(w1); 
  
-        if (webServer.arg("led_stat") == "yes") { 
+        if (webServer.arg("led_stat") == F("yes")) { 
             message = "SUCCESS led's work properly"; 
 		    setNoCacheHeaders(); 
 		    webServer.send(200, FPSTR(kTEXTHTML), message); 
@@ -1387,7 +1373,7 @@ void handle_setParameters() // accept updated param/s via POST, save them, then 
     }
     if(webServer.hasArg(kREBOOT)) {
         ok = true;
-        reboot = webServer.arg(kREBOOT) == "1";
+        reboot = webServer.arg(kREBOOT) == F("1");
     }
     if(ok) {
         getWorld()->getParameters()->saveAllToEeprom();
@@ -1440,7 +1426,7 @@ extern bool r900x_saveparams(String file); // its in main.cpp
 void save900xparams() { 
 
     String message = FPSTR(kHEADER);
-    if (r900x_saveparams("/r900x_params.txt") ) { 
+    if (r900x_saveparams(RFD_LOC_PAR) ) { 
         message += "900x radio params saved to modem OK. ";
     } else { 
         message += "900x radio params save FAILED. Does file /r900x_params.txt exist? ";
@@ -1517,11 +1503,11 @@ void handleFileUpload() {
       webServer.sendHeader("Location","/success.htm");      // Redirect the client to the success page
       webServer.send(303);
     } else { 
-      webServer.send(500, "text/plain", "500: could not create file -1");
+      webServer.send(500, kTEXTPLAIN, "500: could not create file -1");
     }
     //debug_serial_print("handleFileUpload Size: "); debug_serial_println(upload.totalSize);
   }
-  //webServer.send(200, "text/plain", "");
+  //webServer.send(200, kTEXTPLAIN, "");
 }
 
 // /plist
@@ -1533,7 +1519,7 @@ void handle900xParamList() {
  
     if ( ! html ) {  // did we open this file ok, ie does it exist? 
         debug_serial_println("no /r900x_params.htm exists, can't display modem settings properly.\n");
-        webServer.send(200, "text/html", "Error: r900x_params.htm is missing from spiffs."); return;
+        webServer.send(200, kTEXTHTML, "Error: r900x_params.htm is missing from spiffs."); return;
     }
 
 
@@ -1556,19 +1542,19 @@ void handle900xParamRefresh() {
     String factory = webServer.arg("factory");
     bool f = false;
     // a factory-default of the 900 radios is actually a r900x_getparams() request with the 2nd "factory_reset_first" parameter true
-    if ( factory == "yes" ) {  f = true; }
+    if ( factory == F("yes") ) {  f = true; }
 
     int num_read = 0;
-    if ( type == "local" ) { 
-    num_read = r900x_getparams("/r900x_params.txt",f);
+    if ( type == F("local") ) { 
+    num_read = r900x_getparams(RFD_LOC_PAR,f);
     }
-    if ( type == "remote" ) { 
-    num_read = r900x_getparams("/r900x_params_remote.txt",f);
+    if ( type == F("remote") ) { 
+    num_read = r900x_getparams(RFD_REM_PAR,f);
     }
-    if ( type == "setup" ) { 
+    if ( type == F("setup") ) { 
     r900x_setup(false);
     }
-    if ( type == "reflash" ) { 
+    if ( type == F("reflash") ) { 
     r900x_setup(true);
     }
 
@@ -1577,7 +1563,7 @@ void handle900xParamRefresh() {
     //type = "handle900xParamRefresh() executed. type:"+type+" num_read:"+num_read;
     type = "{ \"request\":\"paramrefresh\", \"type\":\""+type+"\", \"num_read\":"+num_read+"}"; // valid json to browser
 
-    //webServer.send(200, "text/plain", type );
+    //webServer.send(200, kTEXTPLAIN, type );
      webServer.send(200, "application/json", type ); 
 
 
@@ -1588,7 +1574,7 @@ void handle900xParamRefresh() {
 // spiffs files  goto url:  http://192.168.4.1/list?dir=/
 void handleFileList() {
   if (!webServer.hasArg("dir")) {
-    webServer.send(500, "text/plain", "BAD ARGS");
+    webServer.send(500, kTEXTPLAIN, "BAD ARGS");
     return;
   }
 
@@ -1619,48 +1605,48 @@ void handleFileList() {
 void handleFileDelete() {
     debug_serial_println("handleFileDelete()");
   if (webServer.args() == 0) {
-    return webServer.send(500, "text/plain", "BAD ARGS");
+    return webServer.send(500, kTEXTPLAIN, "BAD ARGS");
   }
   String path = webServer.arg(0);
   debug_serial_println("handleFileDelete: " + path);
-  if (path == "/") {
-    return webServer.send(500, "text/plain", "BAD PATH");
+  if (path == F("/")) {
+    return webServer.send(500, kTEXTPLAIN, "BAD PATH");
   }
   if (!SPIFFS.exists(path)) {
-    return webServer.send(404, "text/plain", "FileNotFound");
+    return webServer.send(404, kTEXTPLAIN, "FileNotFound");
   }
   SPIFFS.remove(path);
-  webServer.send(200, "text/plain", "");
+  webServer.send(200, kTEXTPLAIN, "");
   path = String();
 }
 
 void handleFileCreate() {
     debug_serial_println("handleFileCreate()");
   if (webServer.args() == 0) {
-    return webServer.send(500, "text/plain", "BAD ARGS");
+    return webServer.send(500, kTEXTPLAIN, "BAD ARGS");
   }
   String path = webServer.arg(0);
   debug_serial_println("handleFileCreate: " + path);
-  if (path == "/") {
-    return webServer.send(500, "text/plain", "BAD PATH");
+  if (path == F("/")) {
+    return webServer.send(500, kTEXTPLAIN, "BAD PATH");
   }
   if (SPIFFS.exists(path)) {
-    return webServer.send(500, "text/plain", "FILE EXISTS");
+    return webServer.send(500, kTEXTPLAIN, "FILE EXISTS");
   }
   File file = SPIFFS.open(path, "w");
   if (file) {
     file.close();
   } else {
-    return webServer.send(500, "text/plain", "CREATE FAILED");
+    return webServer.send(500, kTEXTPLAIN, "CREATE FAILED");
   }
-  webServer.send(200, "text/plain", "");
+  webServer.send(200, kTEXTPLAIN, "");
   path = String();
 }
 
 void handle900xParamSave() { 
     debug_serial_println("handle900xParamSave()");
   if (webServer.args() == 0) {
-    return webServer.send(500, "text/plain", "BAD ARGS");
+    return webServer.send(500, kTEXTPLAIN, "BAD ARGS");
   }
   //String p = webServer.arg('params');
    // debug_serial_println("handle900xParamSave: " + p);
@@ -1674,7 +1660,7 @@ void handle900xParamSave() {
   int retval = 404; // if its good, then some sort of 200 message, depending on what happens.
 
   File f;
-  String filename = "/r900x_params.txt"; // default name
+  String filename = RFD_LOC_PAR; // default name
   if (webServer.hasArg("f")) { 
        filename = webServer.arg("f");
        f = SPIFFS.open(filename, "w");
@@ -1684,7 +1670,7 @@ void handle900xParamSave() {
 
   if(webServer.hasArg(kPLAIN)) { // ie PUT/POST content was given....
         // write params to spiffs,  TODO need better checks here, as it comes from the client, but the worse they can do is pretty minor
-       //File f = SPIFFS.open("/r900x_params.txt", "w");
+       //File f = SPIFFS.open(RFD_LOC_PAR, "w");
        f.print(webServer.arg(kPLAIN));
        f.close();
        message += "\nFile written:";
@@ -1701,7 +1687,7 @@ void handle900xParamSave() {
     
   }
 
-  webServer.send(retval, "text/plain", message);
+  webServer.send(retval, kTEXTPLAIN, message);
 
   debug_serial_println("handle900xParamSave: " + message);
 
@@ -1735,7 +1721,7 @@ MavESP8266Httpd::begin(MavESP8266Update* updateCB_)
     webServer.on("/setup",          handle_setup);
     webServer.on("/info.json",      handle_getJSysInfo);
     webServer.on("/status.json",    handle_getJSysStatus);
-    webServer.on("/log.json",       handle_getJLog);
+    //webServer.on("/log.json",       handle_getJLog);
 
     webServer.on("/updatepage",       handle_update_html); // presents a webpage that then might upload a binary to the /upload endpoint via POST
 
@@ -1754,7 +1740,7 @@ MavESP8266Httpd::begin(MavESP8266Update* updateCB_)
     //load editor
     webServer.on("/edit", HTTP_GET, []() {
     if (!handleFileRead("/edit.htm")) {
-      webServer.send(404, "text/plain", "FileNotFound");
+      webServer.send(404, kTEXTPLAIN, "FileNotFound");
     }
     });
 
@@ -1771,10 +1757,10 @@ MavESP8266Httpd::begin(MavESP8266Update* updateCB_)
     //second callback handles file uploads at that location
     //webServer.on("/edit", HTTP_POST, handleFileUpload);
 
-    //webServer.send(200, "text/plain", "");
+    //webServer.send(200, kTEXTPLAIN, "");
     //}, handleFileUpload);
 
-//    webServer.on("/edit", HTTP_POST, [](){ webServer.send(200, "text/plain", "yup."); }, handleFileUpload);
+//    webServer.on("/edit", HTTP_POST, [](){ webServer.send(200, kTEXTPLAIN, "yup."); }, handleFileUpload);
 
     webServer.on("/edit", HTTP_POST, [](){ webServer.sendHeader("Location","/success.htm"); webServer.send(303); }, handleFileUpload);
 
@@ -1791,7 +1777,7 @@ MavESP8266Httpd::begin(MavESP8266Update* updateCB_)
     //use it to load content from SPIFFS
     webServer.onNotFound([]() {
     if (!handleFileRead(webServer.uri())) {
-      webServer.send(404, "text/plain", "FileNotFound");
+      webServer.send(404, kTEXTPLAIN, "FileNotFound");
     }
     });
 

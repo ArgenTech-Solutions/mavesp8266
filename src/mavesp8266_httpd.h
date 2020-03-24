@@ -40,6 +40,13 @@
 
 #include "mavesp8266.h"
 
+#define RFD_LOC_PAR "/r900x_params.txt"
+#define RFD_LOC_VER "/r900x_version.txt"
+#define RFD_REM_PAR "/r900x_params_remote.txt"
+#define RFD_REM_VER "/r900x_version_remote.txt"
+#define RFD_ENC_KEY "/key.txt"
+
+
 class MavESP8266Httpd {
 public:
     MavESP8266Httpd();
