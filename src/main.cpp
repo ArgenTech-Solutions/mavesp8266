@@ -944,17 +944,6 @@ void r900x_setup(bool reflash) { // if true. it will attempt to reflash ( and fa
     swSer.println("Serial.begin("+String(baudrate)+");");
     Serial.begin(baudrate); // // get params from modem with command-mode, without talking ot the bootloader, at stock firmware baud rate.
 
-    // getting fresh parameters after every bootup
-    r900x_getparams("/r900x_params.txt",false); 
-
-    File p2 = SPIFFS.open("/r900x_params_remote.txt", "r");
-
-    if ( !p2 ) {
-        swSer.println(F("can't see remote parameters files, re-getting in 2 secs...."));
-        delay(2000);
-        r900x_getparams("/r900x_params_remote.txt",false); 
-    } 
-
     f = SPIFFS.open(BOOTLOADERNAME, "r");
 
     // if we've got anything available to try a reflash, must be a .bin
@@ -1149,13 +1138,8 @@ void r900x_setup(bool reflash) { // if true. it will attempt to reflash ( and fa
 
     //we put a AT&F here to factory-reset the modem after the reflash and before we get params from it
     
-    if (reflash ) { 
-        r900x_getparams("/r900x_params_remote.txt",true);  // true = reset to factory defaults before reading params
-        r900x_getparams("/r900x_params.txt",true);         // true = reset to factory defaults before reading params
-    } else { 
-        r900x_getparams("/r900x_params_remote.txt",false);  
-        r900x_getparams("/r900x_params.txt",false);  
-    }
+    r900x_getparams("/r900x_params_remote.txt",true);  // true = reset to factory defaults before reading params
+    r900x_getparams("/r900x_params.txt",true);         // true = reset to factory defaults before reading params
 
     f.close();
 
