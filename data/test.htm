@@ -307,7 +307,7 @@ function sendData(page) {
     });
     // Define what happens in case of error
     XHR.addEventListener("error", function(event) {
-      alert_window('Something went wrong while sending your request.\r\nVerify your TX Pole is operational and power-cycle it if necessary.', event.message);
+      alert_window('Something went wrong while sending your request.\r\nVerify your TXMOD is operational and power-cycle it if necessary.', event.message);
     });
     // Set up our request
     XHR.open("POST", "/test");

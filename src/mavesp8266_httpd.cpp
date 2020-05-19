@@ -82,7 +82,7 @@ body{max-width:800px;width:90%;background-color:#f1f1f1;font-family:Verdana;marg
 p{font-size:12px;padding:0 0 15px 0;margin:0}p:last-child{padding-bottom:0}.b{margin:0 0 15px 0;background-color:#fff;padding:15px}
 a,a:hover,a:active,a:visited{background-color:transparent;font-size:10px;color:#3C9BED;padding:5px 7px;margin:0 3px 3px 0;border:1px solid #3C9BED;border-radius:5px;text-decoration:none;display:inline-block}a:hover{background-color:#D7EDFF}.warn{background-color:#ffe88e;padding:10px;border-radius:5px;font-style:italic}
 </style></head><body><div class='hd'><h1>TXMOD</h1></div><div class='cl h ct l'><div class='b'><h2>Network Status</h2>$net_info$<a href='/getstatus'>Network status</a><a href='/setup'>WiFi/Network Setup</a></div>
-<div class='b'><h2>Device Info</h2><p class='warn'>It seems your TX Pole does not have a SPIFFS file system installed. Upload the SPIFFS file to fix this issue.</p>$device_info$</div>
+<div class='b'><h2>Device Info</h2><p class='warn'>It seems your TXMOD does not have a SPIFFS file system installed. Upload the SPIFFS file to fix this issue.</p>$device_info$</div>
 <div class='b'><h2>RFD900x Setup Wizard</h2><p>The wizard allows you the adjust internal and remote long-range radios settings.</p><a href='/wiz.htm'>Go to First Run Wizard!</a></div>
 </div><div class='cl h ct'><div class='b'><h2>Documentation</h2><p>Requires internet access</p><a href='http://ardupilot.org'>ArduPilot Website</a><a href='http://ardupilot.org/copter/docs/common-esp8266-telemetry.html'>ESP8266 WiFi Documentation</a><a href='https://github.com/RFDesign/mavesp8266'>TXMOD ESP8266 Source Code</a><a href='http://files.rfdesign.com.au/firmware/'>TXMOD Firmware Updates</a></div>
 <div class='b'><h2>Advanced options</h2><a href='/plist'>RFD900x Radio Settings</a><a href='/updatepage'>Update Firmware</a><a href='/edit'>View and edit <!-- some --> files in the SPIFFS filesystem</a></div></div></body></html>)V0G0N";
@@ -1084,7 +1084,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
              //RT&R
             // Record default PPM stream for PPM output (vehicle side)
             // activate PPM failsave channel settings on remote radio:
-            int retval =    r900x_savesingle_param_and_verify_more("RT", "&R", "", false);
+            int retval =    r900x_savesingle_param_and_verify_more("RT", "&R", "", true);
             if ( retval < 0 ) {  //if remote verified, then activate local 900x Network Channel (ID)  and verify
                     message += "FAILED param saving to REMOTE 900x radio. RT &R";
                     setNoCacheHeaders();
