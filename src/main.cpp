@@ -46,7 +46,7 @@
 #include "mavesp8266_httpd.h"
 #include "mavesp8266_component.h"
 #include "FS.h" // for SPIFFS acccess
-#include "frsky.h"
+#include "sport.h"
 #include "txmod_debug.h"
 #include <XModem.h> // for firmware updates
 #include <ESP8266mDNS.h>
@@ -1244,7 +1244,7 @@ bool gcs_veh_initd = false;
 //-- Set things up
 void setup() {
 //    bool LEDState;
-    delay(1000);
+    delay(100);
     Serial.begin(115200);
     Parameters.begin(); 
     debug_init();
@@ -1393,7 +1393,7 @@ void setup() {
     //try at current/stock baud rate, 57600, first.
     r900x_setup(true); // probe for 900x and if a new firware update is needed , do it.  CAUTION may hang in retries if 900x modem is NOT attached
 
-    frsky_setup();
+    sport_setup();
     
     if (!gcs_veh_initd) { 
 
@@ -1417,7 +1417,8 @@ void setup() {
         gcs_veh_initd = true;    
     }
 
-    debug_serial_println(F("setup() complete"));
+    debug_init();
+    Serial1.println(F("setup() complete"));
 }
 
 void client_check() { 
@@ -1597,5 +1598,5 @@ void loop() {
         ESP.reset();
     }
 
-    frsky_loop();
+    sport_loop();
 }

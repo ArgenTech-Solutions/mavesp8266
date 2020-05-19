@@ -144,9 +144,7 @@ MavESP8266Component::_sendStatusMessage(MavESP8266Bridge* sender, uint8_t type, 
         sender->_send_chan,
         &msg,
         type,
-        text,
-        0,
-        0
+        text
     );
     sender->sendMessage(&msg);
 }

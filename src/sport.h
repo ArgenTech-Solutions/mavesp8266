@@ -1,5 +1,5 @@
-#ifndef FRSKY_H
-#define FRSKY_H
+#ifndef SPORT_H
+#define SPORT_H
 
 /*
 Complete change log and debugging options are at the bottom of this tab
@@ -10,9 +10,9 @@ v2.56.2  2020-02-27 STM32F103C / Blue Pill / Maple Mini deprecated. Tidy up Teen
 
 #include "mavesp8266.h"
 
-void frsky_setup();
-void frsky_loop();
-void frsky_handle_mavlink(mavlink_message_t * msg);
+void sport_setup();
+void sport_loop();
+void sport_handle_mavlink(mavlink_message_t * msg);
 
 //===========================================================================================
 //

@@ -10,16 +10,16 @@ SoftwareSerial swSer;
 
 void debug_init()
 {
-    #if not defined DEBUG_DISABLE
+    //#if not defined DEBUG_DISABLE
     #ifdef DEBUG_USE_SW_SERIAL
         swSer.begin(115200,SWSERIAL_8N1,14,16,false);
         swSer.println(F("[MSG] initd swSer output"));
     #else
         Serial1.begin(115200);
         Serial1.println(F("[MSG] initd Serial output"));
-        Serial1.setDebugOutput(true);
+        //Serial1.setDebugOutput(true);
     #endif
-    #endif
+    //#endif
 }
 
 void debug_println(String line)
@@ -30,4 +30,9 @@ void debug_println(String line)
 void debug_print(String str)
 {
     DEBUG_SERIAL.print(str);
+}
+
+void debug_flush()
+{
+    DEBUG_SERIAL.flush();
 }

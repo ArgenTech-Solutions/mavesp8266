@@ -39,7 +39,7 @@
 #include "mavesp8266_vehicle.h"
 #include "mavesp8266_parameters.h"
 #include "mavesp8266_component.h"
-#include "frsky.h"
+#include "sport.h"
 
 //---------------------------------------------------------------------------------
 MavESP8266Vehicle::MavESP8266Vehicle()
@@ -185,8 +185,8 @@ MavESP8266Vehicle::_readMessage()
                     break;
                 }
 #endif
-                // convert mavlink to frsky
-                frsky_handle_mavlink(&_msg);
+                // convert mavlink to passthru
+                sport_handle_mavlink(&_msg);
                 
                 //-- Check for message we might be interested
                 if(getWorld()->getComponent()->handleMessage(this, &_msg)){

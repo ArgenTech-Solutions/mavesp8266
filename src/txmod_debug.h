@@ -9,6 +9,14 @@
 void debug_init();
 void debug_serial_println(String line);
 void debug_serial_print(String str);
+void debug_flush();
+
+#define debug_crit_println(X) \
+    debug_serial_println(String(X)); \
+    debug_flush()
+#define debug_crit_print(X) \
+    debug_serial_print(String(X)); \
+    debug_flush()
 
 #ifdef DEBUG_DISABLE
 #define debug_serial_println(X)

@@ -139,7 +139,7 @@
   //#undef F           // F defined in c_library_v2\mavlink_sha256.h AND teensy3/WString.h
 #endif
 
-#include "frsky.h"
+#include "sport.h"
 #include "mavesp8266.h"
 #include <CircularBuffer.h>
 #include <mavlink_types.h>
@@ -206,8 +206,6 @@ struct Loc2D {
 
 
 //=========================================== M A V L I N K =============================================    
-
-mavlink_message_t   R2Gmsg, G2Fmsg;
 
 uint16_t            len;
 
@@ -627,13 +625,18 @@ uint32_t fr_rssi;
   sb_t sr, sb[sb_rows];
   char safety_padding[10];
   uint16_t sb_unsent;  // how many rows in use
+
+  enum SPortMode { rx , tx };
+  SPortMode mode, modeNow;
+
+  bool      pb_rx = true;  // For PrintByte() direction indication
   
 //=================================================================================================   
 //                     F O R W A R D    D E C L A R A T I O N S
 //=================================================================================================
 
 // Forward declarations
-void FrSkySPort_Init(void);
+void SPort_Init(void);
 bool Read_FC_To_RingBuffer();
 void PackSensorTable(uint16_t, uint8_t);
 void RB_To_Decode_To_SPort_and_GCS();
@@ -641,11 +644,11 @@ void Decode_GCS_To_FC();
 void Write_To_FC(uint32_t);
 void Send_FC_Heartbeat();
 void RequestMissionList();
-void MavToRingBuffer(mavlink_message_t * msg);
+void MavToRingBuffer(mavlink_message_t*);
 void Send_From_RingBuf_To_GCS();
 void checkLinkErrors(mavlink_message_t*); 
-void DecodeOneMavFrame();
-void Emulate_ReadSPort();
+void DecodeOneMavFrame(mavlink_message_t);
+void SPort_Blind_Inject_Packet();
 void MarkHome();
 uint32_t Get_Volt_Average1(uint16_t);
 uint32_t Get_Volt_Average2(uint16_t);
@@ -656,9 +659,9 @@ void Accum_mAh2(uint32_t);
 void Accum_Volts1(uint32_t); 
 void Accum_Volts2(uint32_t); 
 void ReadSPort(void);
-void FrSkySPort_Inject_Packet();
-void FrSkySPort_SendByte(uint8_t, bool);
-void FrSkySPort_SendDataFrame(uint8_t, uint16_t, uint32_t);
+void SPort_Inject_Packet();
+void SPort_SendByte(uint8_t, bool);
+void SPort_SendDataFrame(uint8_t, uint16_t, uint32_t);
 void PackLat800(uint16_t);
 void PackLon800(uint16_t);
 void PackMultipleTextChunks_5000(uint16_t);
@@ -691,9 +694,7 @@ void WebServerSetup();
 void PackSensorTable(uint16_t, uint8_t);
 void Send_FC_Heartbeat();
 void RequestMissionList();
-void MavToRingBuffer();
-void DecodeOneMavFrame();
-void Emulate_ReadSPort();
+void SPort_Blind_Inject_Packet();
 void ReadSPort(void);
 void DisplayByte(byte);
 uint8_t PX4FlightModeNum(uint8_t, uint8_t);
@@ -706,7 +707,7 @@ uint8_t PX4FlightModeNum(uint8_t, uint8_t);
 //                                      S   E   T   U  P 
 //=================================================================================================
 //=================================================================================================
-void frsky_setup()  {
+void sport_setup()  {
 
   debug_serial_print("Target Board is ");
    
@@ -745,7 +746,7 @@ void frsky_setup()  {
 //                                    S E T U P   S E R I A L
 //=================================================================================================  
 
-  FrSkySPort_Init();
+  SPort_Init();
  
 //=================================================================================================   
 //                                    S E T U P   O T H E R
@@ -768,7 +769,7 @@ void frsky_setup()  {
 //================================================================================================= 
 //================================================================================================= 
 
-void frsky_loop() {
+void sport_loop() {
   
   /*if (!Read_FC_To_RingBuffer()) {  //  check for SD eof
     if (sdStatus == 5) {
@@ -860,9 +861,190 @@ void frsky_loop() {
 //                               E N D   O F   M  A  I  N    L  O  O  P
 //================================================================================================= 
 
-void frsky_handle_mavlink(mavlink_message_t * msg) {
+void sport_handle_mavlink(mavlink_message_t * msg) {
     debug_serial_println("mav msg rcvd: "+String(msg->msgid));
     MavToRingBuffer(msg);
+}
+//=================================================================================================  
+void PrintByte(byte b) {
+  if (b == 0x7E) {
+    debug_serial_println();
+    //clm = 0;
+  }
+  if (b<=0xf) debug_serial_print("0");
+  debug_serial_print(String(b,HEX));
+  if (pb_rx) {
+    debug_serial_print("<");
+  } else {
+    debug_serial_print(">");
+  }
+  /*
+  clm++;
+  if (clm > 30) {
+    debug_serial_println();
+    clm=0;
+  }
+  */
+}
+//=================================================================================================  
+void PrintMavBuffer(const void *object){
+
+    const unsigned char * const bytes = static_cast<const unsigned char *>(object);
+  int j;
+
+uint8_t   tl;
+
+uint8_t mavNum;
+
+//Mavlink 1 and 2
+uint8_t mav_magic;               // protocol magic marker
+uint8_t mav_len;                 // Length of payload
+
+//uint8_t mav_incompat_flags;    // MAV2 flags that must be understood
+//uint8_t mav_compat_flags;      // MAV2 flags that can be ignored if not understood
+
+uint8_t mav_seq;                // Sequence of packet
+//uint8_t mav_sysid;            // ID of message sender system/aircraft
+//uint8_t mav_compid;           // ID of the message sender component
+uint8_t mav_msgid;            
+/*
+uint8_t mav_msgid_b1;           ///< first 8 bits of the ID of the message 0:7; 
+uint8_t mav_msgid_b2;           ///< middle 8 bits of the ID of the message 8:15;  
+uint8_t mav_msgid_b3;           ///< last 8 bits of the ID of the message 16:23;
+uint8_t mav_payload[280];      ///< A maximum of 255 payload bytes
+uint16_t mav_checksum;          ///< X.25 CRC
+*/
+
+  
+  if ((bytes[0] == 0xFE) || (bytes[0] == 0xFD)) {
+    j = -2;   // relative position moved forward 2 places
+  } else {
+    j = 0;
+  }
+   
+  mav_magic = bytes[j+2];
+  if (mav_magic == 0xFE) {  // Magic / start signal
+    mavNum = 1;
+  } else {
+    mavNum = 2;
+  }
+/* Mav1:   8 bytes header + payload
+ * magic
+ * length
+ * sequence
+ * sysid
+ * compid
+ * msgid
+ */
+  
+  if (mavNum == 1) {
+    debug_serial_print("mav1: /");
+
+    if (j == 0) {
+      PrintByte(bytes[0]);   // CRC1
+      PrintByte(bytes[1]);   // CRC2
+      debug_serial_print("/");
+      }
+    mav_magic = bytes[j+2];   
+    mav_len = bytes[j+3];
+ //   mav_incompat_flags = bytes[j+4];;
+ //   mav_compat_flags = bytes[j+5];;
+    mav_seq = bytes[j+6];
+ //   mav_sysid = bytes[j+7];
+ //   mav_compid = bytes[j+8];
+    mav_msgid = bytes[j+9];
+
+    //debug_serial_print(TimeString(millis()/1000)); debug_serial_print(": ");
+  
+    debug_serial_print("seq="); debug_serial_print(mav_seq); debug_serial_print("\t"); 
+    debug_serial_print("len="); debug_serial_print(mav_len); debug_serial_print("\t"); 
+    debug_serial_print("/");
+    for (int i = (j+2); i < (j+10); i++) {  // Print the header
+      PrintByte(bytes[i]); 
+    }
+    
+    debug_serial_print("  ");
+    debug_serial_print("#");
+    debug_serial_print(mav_msgid);
+    if (mav_msgid < 100) debug_serial_print(" ");
+    if (mav_msgid < 10)  debug_serial_print(" ");
+    debug_serial_print("\t");
+    
+    tl = (mav_len+10);                // Total length: 8 bytes header + Payload + 2 bytes CRC
+ //   for (int i = (j+10); i < (j+tl); i++) {  
+    for (int i = (j+10); i <= (tl); i++) {    
+     PrintByte(bytes[i]);     
+    }
+    if (j == -2) {
+      debug_serial_print("//");
+      PrintByte(bytes[mav_len + 8]); 
+      PrintByte(bytes[mav_len + 9]); 
+      }
+    debug_serial_println("//");  
+  } else {
+
+/* Mav2:   10 bytes
+ * magic
+ * length
+ * incompat_flags
+ * mav_compat_flags 
+ * sequence
+ * sysid
+ * compid
+ * msgid[11] << 16) | [10] << 8) | [9]
+ */
+    
+    debug_serial_print("mav2:  /");
+    if (j == 0) {
+      PrintByte(bytes[0]);   // CRC1
+      PrintByte(bytes[1]);   // CRC2 
+      debug_serial_print("/");
+    }
+    mav_magic = bytes[2]; 
+    mav_len = bytes[3];
+//    mav_incompat_flags = bytes[4]; 
+  //  mav_compat_flags = bytes[5];
+    mav_seq = bytes[6];
+//    mav_sysid = bytes[7];
+   // mav_compid = bytes[8]; 
+    mav_msgid = (bytes[11] << 16) | (bytes[10] << 8) | bytes[9]; 
+
+    //debug_serial_print(TimeString(millis()/1000)); debug_serial_print(": ");
+
+    debug_serial_print("seq="); debug_serial_print(mav_seq); debug_serial_print("\t"); 
+    debug_serial_print("len="); debug_serial_print(mav_len); debug_serial_print("\t"); 
+    debug_serial_print("/");
+    for (int i = (j+2); i < (j+12); i++) {  // Print the header
+     PrintByte(bytes[i]); 
+    }
+
+    debug_serial_print("  ");
+    debug_serial_print("#");
+    debug_serial_print(mav_msgid);
+    if (mav_msgid < 100) debug_serial_print(" ");
+    if (mav_msgid < 10)  debug_serial_print(" ");
+    debug_serial_print("\t");
+
+ //   tl = (mav_len+27);                // Total length: 10 bytes header + Payload + 2B CRC +15 bytes signature
+    tl = (mav_len+22);                  // This works, the above does not!
+    for (int i = (j+12); i < (tl+j); i++) {   
+       if (i == (mav_len + 12)) {
+        debug_serial_print("/");
+      }
+      if (i == (mav_len + 12 + 2+j)) {
+        debug_serial_print("/");
+      }
+      PrintByte(bytes[i]); 
+    }
+    debug_serial_println();
+  }
+
+   debug_serial_print("Raw: ");
+   for (int i = 0; i < 40; i++) {  //  unformatted
+      PrintByte(bytes[i]); 
+    }
+   debug_serial_println();
+  
 }
 
 bool Read_FC_To_RingBuffer() {
@@ -888,20 +1070,22 @@ bool Read_FC_To_RingBuffer() {
 void RB_To_Decode_To_SPort_and_GCS() {
 
   if (!MavRingBuff.isEmpty()) {
-    R2Gmsg = (MavRingBuff.shift());  // Get a mavlink message from front of queue
+    noInterrupts();
+    mavlink_message_t msg = (MavRingBuff.shift());  // Get a mavlink message from front of queue
+    interrupts();
     #if defined Mav_Debug_RingBuff
   //   debug_print("Mavlink ring buffer R2Gmsg: ");  
   //    PrintMavBuffer(&R2Gmsg);
       debug_serial_print("Ring queue = "); debug_serial_println(String(MavRingBuff.size()));
     #endif
    
-    DecodeOneMavFrame();  // Decode a Mavlink frame from the ring buffer 
+    DecodeOneMavFrame(msg);  // Decode a Mavlink frame from the ring buffer 
 
   }
                               //*** Decoded Mavlink to S.Port  ****
 
   if((millis() - em_millis) > 10) {   
-    Emulate_ReadSPort();                // Emulate the sensor IDs received from XRS receiver on SPort
+    SPort_Blind_Inject_Packet();                // Emulate the sensor IDs received from XRS receiver on SPort
     em_millis=millis();
   }
 }  
@@ -915,7 +1099,9 @@ void MavToRingBuffer(mavlink_message_t * F2Rmsg) {
         debug_serial_println("MavRingBuff full. Dropping records!");
       }
        else {
+        noInterrupts();
         MavRingBuff.push(*F2Rmsg);
+        interrupts();
         #if defined Mav_Debug_RingBuff
           debug_print("Ring queue = "); 
           debug_println(String(MavRingBuff.size()));
@@ -927,7 +1113,7 @@ void MavToRingBuffer(mavlink_message_t * F2Rmsg) {
 
 uint32_t bit32Extract(uint32_t dword,uint8_t displ, uint8_t lth); // Forward define
 
-void DecodeOneMavFrame() {
+void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
   
    #if defined Mav_Print_All_Msgid
      uint16_t sz = sizeof(R2Gmsg);
@@ -1235,7 +1421,7 @@ void DecodeOneMavFrame() {
           ap26_ymag = mavlink_msg_scaled_imu_get_ymag(&R2Gmsg);
           ap26_zmag = mavlink_msg_scaled_imu_get_zmag(&R2Gmsg);
           //  mav2
-          ap26_temp = mavlink_msg_scaled_imu_get_temperature(&R2Gmsg);         
+          // TODO ap26_temp = mavlink_msg_scaled_imu_get_temperature(&R2Gmsg);         
           
           #if defined Mav_Debug_All || defined Mav_Debug_Scaled_IMU
             debug_serial_print("Mavlink from FC #26 Scaled_IMU: ");
@@ -1620,33 +1806,57 @@ void DecodeOneMavFrame() {
         #endif
                                
         case MAVLINK_MSG_ID_VFR_HUD:                 //  #74
+        {
           if (!mavGood) break;      
-          ap_hud_air_spd = mavlink_msg_vfr_hud_get_airspeed(&R2Gmsg);
-          ap_hud_grd_spd = mavlink_msg_vfr_hud_get_groundspeed(&R2Gmsg);      //  in m/s
-          ap_hud_hdg = mavlink_msg_vfr_hud_get_heading(&R2Gmsg);              //  in degrees
-          ap_hud_throt = mavlink_msg_vfr_hud_get_throttle(&R2Gmsg);           //  integer percent
-          ap_hud_bar_alt = mavlink_msg_vfr_hud_get_alt(&R2Gmsg);              //  m
-          ap_hud_climb = mavlink_msg_vfr_hud_get_climb(&R2Gmsg);              //  m/s
+          float ap_hud_air_spd_tmp = mavlink_msg_vfr_hud_get_airspeed(&R2Gmsg);
+          float ap_hud_grd_spd_tmp = mavlink_msg_vfr_hud_get_groundspeed(&R2Gmsg);      //  in m/s
+          int16_t ap_hud_hdg_tmp = mavlink_msg_vfr_hud_get_heading(&R2Gmsg);              //  in degrees
+          uint16_t ap_hud_throt_tmp = mavlink_msg_vfr_hud_get_throttle(&R2Gmsg);           //  integer percent
+          float ap_hud_bar_alt_tmp = mavlink_msg_vfr_hud_get_alt(&R2Gmsg);              //  m
+          float ap_hud_climb_tmp = mavlink_msg_vfr_hud_get_climb(&R2Gmsg); 
 
-          cur.hdg = ap_hud_hdg;
-          
-         #if defined Mav_Debug_All || defined Mav_Debug_Hud
-            debug_serial_print("Mavlink from FC #74 VFR_HUD: ");
-            debug_serial_print("Airspeed= "); debug_serial_print(ap_hud_air_spd, 2);                 // m/s    
-            debug_serial_print("  Groundspeed= "); debug_serial_print(ap_hud_grd_spd, 2);            // m/s
-            debug_serial_print("  Heading= ");  debug_serial_print(ap_hud_hdg);                      // deg
-            debug_serial_print("  Throttle %= ");  debug_serial_print(ap_hud_throt);                 // %
-            debug_serial_print("  Baro alt= "); debug_serial_print(ap_hud_bar_alt, 0);               // m                  
-            debug_serial_print("  Climb rate= "); debug_serial_println(ap_hud_climb);                // m/s
-          #endif  
+          if ((ap_hud_air_spd_tmp == 0.0) &&
+              (ap_hud_grd_spd_tmp == 0.0) &&
+              ((ap_hud_hdg_tmp < 0)||(ap_hud_hdg_tmp > 360)) &&
+              (ap_hud_throt_tmp > 100) &&
+              (ap_hud_bar_alt_tmp == 0.0) &&
+              (ap_hud_climb_tmp == 0.0))
+           {
+              Serial1.print("Mavlink from FC #74 VFR_HUD: ");
+              Serial1.print("Airspeed= "); Serial1.print(ap_hud_air_spd_tmp, 2);                 // m/s    
+              Serial1.print("  Groundspeed= "); Serial1.print(ap_hud_grd_spd_tmp, 2);            // m/s
+              Serial1.print("  Heading= ");  Serial1.print(ap_hud_hdg_tmp);                      // deg
+              Serial1.print("  Throttle %= ");  Serial1.print(ap_hud_throt_tmp);                 // %
+              Serial1.print("  Baro alt= "); Serial1.print(ap_hud_bar_alt_tmp, 0);               // m                  
+              Serial1.print("  Climb rate= "); Serial1.println(ap_hud_climb_tmp);                // m/s
+          } else {
+            ap_hud_air_spd = ap_hud_air_spd_tmp;
+            ap_hud_grd_spd = ap_hud_grd_spd_tmp;      //  in m/s
+            ap_hud_hdg = ap_hud_hdg_tmp;              //  in degrees
+            ap_hud_throt = ap_hud_throt_tmp;           //  integer percent
+            ap_hud_bar_alt = ap_hud_bar_alt_tmp;              //  m
+            ap_hud_climb = ap_hud_climb_tmp;              //  m/s
 
-          PackSensorTable(0x5005, 0);  // 0x5005 VelYaw
-
-          #if defined PlusVersion
-            PackSensorTable(0x50F2, 0);  // 0x50F2 VFR HUD
-          #endif
+            cur.hdg = ap_hud_hdg;
             
+          #if defined Mav_Debug_All || defined Mav_Debug_Hud
+              debug_serial_print("Mavlink from FC #74 VFR_HUD: ");
+              debug_serial_print("Airspeed= "); debug_serial_print(ap_hud_air_spd, 2);                 // m/s    
+              debug_serial_print("  Groundspeed= "); debug_serial_print(ap_hud_grd_spd, 2);            // m/s
+              debug_serial_print("  Heading= ");  debug_serial_print(ap_hud_hdg);                      // deg
+              debug_serial_print("  Throttle %= ");  debug_serial_print(ap_hud_throt);                 // %
+              debug_serial_print("  Baro alt= "); debug_serial_print(ap_hud_bar_alt, 0);               // m                  
+              debug_serial_print("  Climb rate= "); debug_serial_println(ap_hud_climb);                // m/s
+            #endif  
+
+            PackSensorTable(0x5005, 0);  // 0x5005 VelYaw
+
+            #if defined PlusVersion
+              PackSensorTable(0x50F2, 0);  // 0x50F2 VFR HUD
+            #endif
+          }            
           break; 
+        }
         case MAVLINK_MSG_ID_RADIO_STATUS:         // #109
           if (!mavGood) break;
 
@@ -1992,7 +2202,7 @@ uint8_t sv_count = 0;
 #endif
 
 //=================================================================================================  
-void FrSkySPort_Init(void)  {
+void SPort_Init(void)  {
 
   for (int i=0 ; i < sb_rows ; i++) {  // initialise sensor table
     sb[i].id = 0;
@@ -2005,7 +2215,8 @@ void FrSkySPort_Init(void)  {
   int8_t frTx = Fr_txPin;
   bool   frInvert = true;
 
-  frSerial.begin(frBaud, SWSERIAL_8N1, frRx, frTx, frInvert);  
+  frSerial.begin(frBaud, SWSERIAL_8N1, frRx, frTx, frInvert);
+  frSerial.enableIntTx(true);  
 
 } 
 //=================================================================================================  
@@ -2024,7 +2235,7 @@ void ReadSPort(void) {
       #if defined Debug_Air_Mode || defined Debug_Relay_Mode
         debug_serial_println("S/S "); 
       #endif
-    FrSkySPort_Inject_Packet(); 
+    SPort_Inject_Packet(); 
 
     }     
   prevByt=Byt;
@@ -2034,20 +2245,19 @@ void ReadSPort(void) {
 
 //=================================================================================================  
 
-void Emulate_ReadSPort() {
+void SPort_Blind_Inject_Packet() {
   #if (defined TEENSY3X)      
     setSPortMode(tx);
   #endif
  
-  FrSkySPort_Inject_Packet();  
+  SPort_Inject_Packet();  
 
 
   // and back to main loop
 }
 
 //=================================================================================================  
-void FrSkySPort_Inject_Packet() {
-
+void SPort_Inject_Packet() {
   #if defined Frs_Debug_Period
     ShowPeriod(0);   
   #endif  
@@ -2121,11 +2331,11 @@ void FrSkySPort_Inject_Packet() {
      #endif  
       
     if (sb[ptr].id == 0xF101) {
-      FrSkySPort_SendByte(0x7E, false);   
-      FrSkySPort_SendByte(0x1B, false);  
+      SPort_SendByte(0x7E, false);   
+      SPort_SendByte(0x1B, false);  
      }
                               
-    FrSkySPort_SendDataFrame(0x1B, sb[ptr].id, sb[ptr].payload);
+    SPort_SendDataFrame(0x1B, sb[ptr].id, sb[ptr].payload);
   
     sb[ptr].payload = 0;  
     sb[ptr].inuse = false; // free the row for re-use
@@ -2241,15 +2451,38 @@ void PackSensorTable(uint16_t id, uint8_t subid) {
               
 }
 //=================================================================================================  
-
-void FrSkySPort_SendByte(uint8_t byte, bool addCrc) {
+void setSPortMode(SPortMode mode) {   
+      if(mode == tx && modeNow !=tx) { 
+        modeNow=mode;
+        pb_rx = false;
+        #if (defined ESP_Onewire) && (defined ESP32_SoftwareSerial)        
+          frSerial.enableTx(true);  // Switch S.Port into send mode
+        #endif
+        #if defined Debug_SPort
+          Debug.println("tx <======");
+        #endif
+      }   else 
+      if(mode == rx && modeNow != rx) {   
+        modeNow=mode; 
+        pb_rx = true; 
+        frSerial.enableTx(false);  // disable interrupts on tx pin
+      } 
+  }
+//=================================================================================================  
+  void frSerialSafeWrite(byte b) {
+    setSPortMode(tx);
+    frSerial.write(b);   
+    #if defined Debug_SPort  
+      PrintByte(b);
+    #endif 
+    delay(0); // yield to rtos for wifi & bt to get a sniff
+  }
+//=================================================================================================
+void SPort_SendByte(uint8_t byte, bool addCrc) {
   #if (not defined inhibit_SPort) 
-  
-    #if (defined TEENSY3X)    
-     setSPortMode(tx); 
-   #endif  
+    
    if (!addCrc) {
-      frSerial.write(byte);    
+      frSerialSafeWrite(byte);  
      return;       
    }
 
@@ -2279,7 +2512,7 @@ void CheckByteStuffAndSend(uint8_t byte) {
   #endif     
 }
 //=================================================================================================  
-void FrSkySPort_SendCrc() {
+void SPort_SendCrc() {
   uint8_t byte;
   byte = 0xFF-crc;
 
@@ -2290,15 +2523,11 @@ void FrSkySPort_SendCrc() {
   crc = 0;          // CRC reset
 }
 //=================================================================================================  
-void FrSkySPort_SendDataFrame(uint8_t Instance, uint16_t Id, uint32_t value) {
+void SPort_SendDataFrame(uint8_t Instance, uint16_t Id, uint32_t value) {
 
-  #if (defined TEENSY3X)      // Teensy3x
-  setSPortMode(tx); 
-  #endif
-
-  FrSkySPort_SendByte(0x7E, false);       //  START/STOP don't add into crc
-  FrSkySPort_SendByte(Instance, false);   //  don't add into crc   
-  FrSkySPort_SendByte(0x10, true );   //  Data framing byte
+  SPort_SendByte(0x7E, false);       //  START/STOP don't add into crc
+  SPort_SendByte(Instance, false);   //  don't add into crc   
+  SPort_SendByte(0x10, true );   //  Data framing byte
  
   uint8_t *bytes = (uint8_t*)&Id;
   #if defined Frs_Debug_Payload
@@ -2307,13 +2536,13 @@ void FrSkySPort_SendDataFrame(uint8_t Instance, uint16_t Id, uint32_t value) {
     debug_serial_print(" "); 
     DisplayByte(bytes[1]);
   #endif
-  FrSkySPort_SendByte(bytes[0], true);
-  FrSkySPort_SendByte(bytes[1], true);
+  SPort_SendByte(bytes[0], true);
+  SPort_SendByte(bytes[1], true);
   bytes = (uint8_t*)&value;
-  FrSkySPort_SendByte(bytes[0], true);
-  FrSkySPort_SendByte(bytes[1], true);
-  FrSkySPort_SendByte(bytes[2], true);
-  FrSkySPort_SendByte(bytes[3], true);
+  SPort_SendByte(bytes[0], true);
+  SPort_SendByte(bytes[1], true);
+  SPort_SendByte(bytes[2], true);
+  SPort_SendByte(bytes[3], true);
   
   #if defined Frs_Debug_Payload
     debug_serial_print("Payload (send order) "); 
@@ -2329,8 +2558,9 @@ void FrSkySPort_SendDataFrame(uint8_t Instance, uint16_t Id, uint32_t value) {
     debug_serial_println("/");  
   #endif
   
-  FrSkySPort_SendCrc();
-   
+  SPort_SendCrc();
+
+  delay(0); // yield to rtos for wifi & bt to get a sniff   
 }
 //=================================================================================================  
   uint32_t bit32Extract(uint32_t dword,uint8_t displ, uint8_t lth) {
