@@ -905,7 +905,7 @@ uint8_t mav_len;                 // Length of payload
 //uint8_t mav_incompat_flags;    // MAV2 flags that must be understood
 //uint8_t mav_compat_flags;      // MAV2 flags that can be ignored if not understood
 
-uint8_t mav_seq;                // Sequence of packet
+//uint8_t mav_seq;                // Sequence of packet
 //uint8_t mav_sysid;            // ID of message sender system/aircraft
 //uint8_t mav_compid;           // ID of the message sender component
 uint8_t mav_msgid;            
@@ -951,7 +951,7 @@ uint16_t mav_checksum;          ///< X.25 CRC
     mav_len = bytes[j+3];
  //   mav_incompat_flags = bytes[j+4];;
  //   mav_compat_flags = bytes[j+5];;
-    mav_seq = bytes[j+6];
+//    mav_seq = bytes[j+6];
  //   mav_sysid = bytes[j+7];
  //   mav_compid = bytes[j+8];
     mav_msgid = bytes[j+9];
@@ -1005,10 +1005,10 @@ uint16_t mav_checksum;          ///< X.25 CRC
     mav_magic = bytes[2]; 
     mav_len = bytes[3];
 //    mav_incompat_flags = bytes[4]; 
-  //  mav_compat_flags = bytes[5];
-    mav_seq = bytes[6];
+//    mav_compat_flags = bytes[5];
+//    mav_seq = bytes[6];
 //    mav_sysid = bytes[7];
-   // mav_compid = bytes[8]; 
+//    mav_compid = bytes[8]; 
     mav_msgid = (bytes[11] << 16) | (bytes[10] << 8) | bytes[9]; 
 
     //debug_serial_print(TimeString(millis()/1000)); debug_serial_print(": ");

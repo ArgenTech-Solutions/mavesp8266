@@ -139,9 +139,10 @@ debug_serial_println("sendFile....." );
   dataFile.seek(0);
   
   if (this->sync()!=0) { 
-        debug_serial_println("::sync failed" ); 
-    goto err;
-    }
+    debug_serial_println("::sync failed" );
+    digitalWrite(LED,HIGH);  // leave  LED OFF at end of upload if failed
+    return -1;
+  }
 
   oldChecksum =  (inChar == NAK);
 
@@ -196,7 +197,9 @@ debug_serial_println("sendFile....." );
       inChar = waitACK();
       tryNo++;
       if (tryNo > MAX_RETRY)
-        goto err;
+        debug_serial_println("Number of tries exceeded");
+        digitalWrite(LED,HIGH);  // leave  LED OFF at end of upload if failed
+        return -1;
     } while (inChar != ACK);
     
     packetNo++;
@@ -210,16 +213,13 @@ debug_serial_println("sendFile....." );
     tryNo++;
     // When timed out, leave immediately
     if (tryNo == SYNC_TIMEOUT)
-      goto err;
+      debug_serial_println("Synchronisation timed out");
+      digitalWrite(LED,HIGH);  // leave  LED OFF at end of upload if failed
+      return -1;
   } while (inChar != ACK);
 
   // When we get here everything was successful.
   digitalWrite(LED,LOW);  // leave  LED ON at end of upload if successful
   return 1;
-err:
-  //port->println("Error sending...");
-  debug_serial_println("Error sending...?");
-  digitalWrite(LED,HIGH);  // leave  LED OFF at end of upload if failed
-  return -1;
 
 }

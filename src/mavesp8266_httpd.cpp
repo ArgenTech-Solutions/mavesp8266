@@ -301,11 +301,11 @@ String getContentType(String filename) {
   } else if (filename.endsWith(".gz")) {
     return "application/x-gzip";
   } else if (filename.endsWith(".txt")) {
-    return kTEXTPLAIN;
+    return "text/plain";
   } else if (filename.endsWith(".json")) {
     return "application/json";
   }
-  return kTEXTPLAIN;
+  return "text/plain";
 }
 
 	
@@ -1752,14 +1752,14 @@ MavESP8266Httpd::begin(MavESP8266Update* updateCB_)
 {
     updateCB = updateCB_;
     webServer.on("/",               handle_root);
-    webServer.on("/getparameters",  handle_getParameters);
+    //webServer.on("/getparameters",  handle_getParameters);
     webServer.on("/setparameters",  handle_setParameters);
     webServer.on("/getstatus",      handle_getStatus);
     //webServer.on("/getstatus_tcp",  handle_getStatusTcp);
     webServer.on("/reboot",         handle_reboot);
     webServer.on("/setup",          handle_setup);
     webServer.on("/info.json",      handle_getJSysInfo);
-    webServer.on("/status.json",    handle_getJSysStatus);
+    //webServer.on("/status.json",    handle_getJSysStatus);
     //webServer.on("/log.json",       handle_getJLog);
 
     webServer.on("/updatepage",       handle_update_html); // presents a webpage that then might upload a binary to the /upload endpoint via POST

@@ -260,7 +260,6 @@ bool enter_command_mode() {
             Serial.write("\r\n"); // terminate the +++ command.
             Serial.flush(); // output buffer flush
             //flush_rx_serial();
-            //goto already_in_cmd_mode2;
             return true;
         } else { 
             debug_serial_println(F("FALED-TO-GET 'OK' or '+++' Response from radio."));
@@ -615,42 +614,41 @@ int r900x_savesingle_param_and_verify_more(String prefix, String ParamID, String
 
     if (  actually_write ) { 
         int param_write_counter = 0;
-        param_write_retries:
+        while (param_write_counter < 5) 
+        {
+            // set param to new vaue
+            String ParamCMD= prefix+ParamID+"="+ParamVAL+"\r\n";
 
-        // set param to new vaue
-        String ParamCMD= prefix+ParamID+"="+ParamVAL+"\r\n";
+                // overwride for special case/s ( very rare ) 
+                if (( prefix == F("RT") ) && ( ParamID == F("&R") )) ParamCMD = prefix+ParamID+"\r\n";
+                if ( ParamID == F("&F") ) ParamCMD = prefix+ParamID+"\r\n";
 
-            // overwride for special case/s ( very rare ) 
-            if (( prefix == F("RT") ) && ( ParamID == F("&R") )) ParamCMD = prefix+ParamID+"\r\n";
-            if ( ParamID == F("&F") ) ParamCMD = prefix+ParamID+"\r\n";
+            debug_serial_println(ParamCMD); // debug only.
+            Serial.write(ParamCMD.c_str());
+            Serial.flush(); // output buffer flush
+            bool ok = SmartSerial->expect("OK",1000);  // needs to be bigger than 200.
+            debug_serial_println(F("7#############################################################"));
+            if ( ok ) { 
+                debug_serial_println(F("GOT OK from radio.\n"));
+                flush_rx_serial();
+            } else { 
 
-        debug_serial_println(ParamCMD); // debug only.
-        Serial.write(ParamCMD.c_str());
-        Serial.flush(); // output buffer flush
-        bool ok = SmartSerial->expect("OK",1000);  // needs to be bigger than 200.
-        debug_serial_println(F("7#############################################################"));
-        if ( ok ) { 
-            debug_serial_println(F("GOT OK from radio.\n"));
-            flush_rx_serial();
-        } else { 
+                // HACK. we don't get an OK reply from RT&E=XXXXXXXXXXXXX, just an echo 
+                //of the command and a blat of suddenly unreadable bytes and the 250ms timeout.
+                //if (( ParamID == F("&E") ) && ( param_write_counter > 8 ) ) { 
+                //   return 3; // positve number = success.
+                //}
 
-            // HACK. we don't get an OK reply from RT&E=XXXXXXXXXXXXX, just an echo 
-            //of the command and a blat of suddenly unreadable bytes and the 250ms timeout.
-            //if (( ParamID == F("&E") ) && ( param_write_counter > 8 ) ) { 
-            //   return 3; // positve number = success.
-            //}
-
-            debug_serial_println(F("FALED-TO-GET OK Response from radio. - retrying:\n"));
-            param_write_counter++;
-            if ( param_write_counter < 5 ) { 
-                goto param_write_retries;
+                debug_serial_println(F("FALED-TO-GET OK Response from radio. - retrying:\n"));
+                param_write_counter++;                
             }
+        } 
 
+        if (param_write_counter == 5) {
             // if 5 retries exceeded, return error.
             debug_serial_println(F("RETURN:no response to param set request - 5 retries exceeded")); 
             return -2; // neg number/s mean error
-        } 
-
+        }
 
         if ( ! save_and_reboot ) {
             debug_serial_println(F("Skipping save and reboot\nRETURN:PERFECTO"));
@@ -660,44 +658,43 @@ int r900x_savesingle_param_and_verify_more(String prefix, String ParamID, String
 
     if ( save_and_reboot )  { 
         int param_save_counter = 0;
-        param_save_retries:
-
-        // save params AND take out of command mode via a quick reboot
-        String savecmd = prefix+"&W\r\n"; // "AT&W\r\n
-        debug_serial_println(savecmd); // debug only.
-        Serial.write(savecmd.c_str());
-        Serial.flush(); // output buffer flush
-
-        // LEDState = 0;
-        // digitalWrite(LEDGPIO,LEDState);
-        bool ok = SmartSerial->expect("OK",1000); 
-        if ( ok ) { 
-            debug_serial_println(F("GOT OK Response from radio.\n"));
-            //flush_rx_serial();
+        while (param_save_counter < 5) {
 
             // save params AND take out of command mode via a quick reboot
-            String rebootcmd = prefix+"Z\r\n"; // "ATZ\r\n"
-            debug_serial_println(rebootcmd); // debug only.
-            Serial.write(rebootcmd.c_str());
+            String savecmd = prefix+"&W\r\n"; // "AT&W\r\n
+            debug_serial_println(savecmd); // debug only.
+            Serial.write(savecmd.c_str());
             Serial.flush(); // output buffer flush
 
-            delay(150);
-            // TODO ? ok = SmartSerial->expect("RTZ",200);
-            flush_rx_serial(); // - ie 'RTZ' response
+            // LEDState = 0;
+            // digitalWrite(LEDGPIO,LEDState);
+            bool ok = SmartSerial->expect("OK",1000); 
+            if ( ok ) { 
+                debug_serial_println(F("GOT OK Response from radio.\n"));
+                //flush_rx_serial();
 
-        } else { 
+                // save params AND take out of command mode via a quick reboot
+                String rebootcmd = prefix+"Z\r\n"; // "ATZ\r\n"
+                debug_serial_println(rebootcmd); // debug only.
+                Serial.write(rebootcmd.c_str());
+                Serial.flush(); // output buffer flush
 
-            debug_serial_println(F("FALED-TO-GET OK Response from radio. - retrying:\n"));
-            delay(100); // might help by delaying the retry a bit.
-            param_save_counter++;
-            if ( param_save_counter < 5 ) { 
-                goto param_save_retries;
+                delay(150);
+                // TODO ? ok = SmartSerial->expect("RTZ",200);
+                flush_rx_serial(); // - ie 'RTZ' response
+
+            } else { 
+                debug_serial_println(F("FALED-TO-GET OK Response from radio. - retrying:\n"));
+                delay(100); // might help by delaying the retry a bit.
+                param_save_counter++;
+            } 
+
+            if (param_save_counter == 5) {
+                // if 5 retries exceeded, return error.
+                debug_serial_println(F("RETURN:no response to param save request - 5 retries exceeded")); 
+                return -3;
             }
-
-            // if 5 retries exceeded, return error.
-            debug_serial_println(F("RETURN:no response to param save request - 5 retries exceeded")); 
-            return -3;
-        } 
+        }
     }
 
     debug_serial_println(F("RETURN:PERFECT"));
@@ -753,8 +750,7 @@ debug_serial_println(F("r900x_saveparams()\n"));
 
         // if all of them is -1, it's the end of the file.
         if (( colon_offset == -1 ) && ( equals_offset == -1 ) && ( eol_offset == -1 ) ) {    
-            //return true;
-            goto save;
+            break;
         } 
 
         //  if any of these is -1, it failed, just skip that line
@@ -805,10 +801,6 @@ debug_serial_println(F("r900x_saveparams()\n"));
         
         done++;
     }   
-
-    
-    // jump here when done writing parms:
-   save:
 
    // save params AND maybe take out of command mode via a quick reboot
     String savecmd = prefix+"&W\r\n"; // "AT&W\r\n
