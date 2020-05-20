@@ -81,7 +81,7 @@ const char PROGMEM embbeded_index_minimal[] = R"V0G0N(
 body{max-width:800px;width:90%;background-color:#f1f1f1;font-family:Verdana;margin:20px auto}h1,h2,p{font-weight:normal}h2{font-size:20px;margin:0 0 15px 0;width:100%}
 p{font-size:12px;padding:0 0 15px 0;margin:0}p:last-child{padding-bottom:0}.b{margin:0 0 15px 0;background-color:#fff;padding:15px}
 a,a:hover,a:active,a:visited{background-color:transparent;font-size:10px;color:#3C9BED;padding:5px 7px;margin:0 3px 3px 0;border:1px solid #3C9BED;border-radius:5px;text-decoration:none;display:inline-block}a:hover{background-color:#D7EDFF}.warn{background-color:#ffe88e;padding:10px;border-radius:5px;font-style:italic}
-</style></head><body><div class='hd'><h1>TXMOD</h1></div><div class='cl h ct l'><div class='b'><h2>Network Status</h2>$net_info$<a href='/getstatus'>Network status</a><a href='/setup'>WiFi/Network Setup</a></div>
+</style></head><body><div class='hd'><h1>TXMOD</h1></div><div class='cl h ct l'><div class='b'><h2>Network Status</h2>$net_info$<a href='/getstatus'>Network status</a><a href='/setup'>General settings</a></div>
 <div class='b'><h2>Device Info</h2><p class='warn'>It seems your TXMOD does not have a SPIFFS file system installed. Upload the SPIFFS file to fix this issue.</p>$device_info$</div>
 <div class='b'><h2>RFD900x Setup Wizard</h2><p>The wizard allows you the adjust internal and remote long-range radios settings.</p><a href='/wiz.htm'>Go to First Run Wizard!</a></div>
 </div><div class='cl h ct'><div class='b'><h2>Documentation</h2><p>Requires internet access</p><a href='http://ardupilot.org'>ArduPilot Website</a><a href='http://ardupilot.org/copter/docs/common-esp8266-telemetry.html'>ESP8266 WiFi Documentation</a><a href='https://github.com/RFDesign/mavesp8266'>TXMOD ESP8266 Source Code</a><a href='http://files.rfdesign.com.au/firmware/'>TXMOD Firmware Updates</a></div>
@@ -104,6 +104,9 @@ const char* kDEBUG      = "debug";
 const char* kREBOOT     = "reboot";
 const char* kPOSITION   = "position";
 const char* kMODE       = "mode";
+const char* kSPORT      = "sport";
+const char* kBATTC      = "battc";
+const char* kBAT2C      = "bat2c";
 
 const char* kFlashMaps[7] = {
     "512KB (256/256)",
@@ -458,11 +461,12 @@ static void handle_root()
 static void handle_setup_adv(String more)
 {
     String message = FPSTR(kHEADER);
-    message += "<h1>Wifi Setup</h1>\n";
+    //message += "<h2>Wifi Setup</h2>";
     message += more;
-    message += "<form action='/setparameters' method='post' onsubmit=\"p=document.getElementById('pwd'); if ( p.value.length < 8 ){p.value='toshort';return false;} return true;\" >\n";
-    message += "WiFi Mode:&nbsp;";
-    message += "<input type='radio' name='mode' value='0'";
+    message += "<table><form action='/setparameters' method='post' onsubmit=\"p=document.getElementById('pwd'); if ( p.value.length < 8 ){p.value='toshort';return false;} return true;\" >\n";
+    message += "<tr><td colspan='2'><h2 style='margin-top:15px'>WiFi Mode</h2></td>";
+    message += "<tr><td>WiFi Mode</td>";
+    message += "<td><input type='radio' name='mode' value='0'";
     if (getWorld()->getParameters()->getWifiMode() == WIFI_MODE_AP) {
         message += " checked";
     }
@@ -471,69 +475,90 @@ static void handle_setup_adv(String more)
     if (getWorld()->getParameters()->getWifiMode() == WIFI_MODE_STA) {
         message += " checked";
     }
-    message += ">Station<br>\n";
+    message += ">Station</td></tr>";
     
-    message += "AP SSID:&nbsp;";
+    message += "<tr><td>AP SSID</td><td>";
     message += "<input type='text' name='ssid' value='";
     message += getWorld()->getParameters()->getWifiSsid();
-    message += "'><br>";
+    message += "'></td></tr>";
 
-    message += "AP Password (min len 8):&nbsp;";
+    message += "<tr><td>AP Password</td><td>";
     message += "<input type='text' name='pwd' id='pwd' value='";
     message += getWorld()->getParameters()->getWifiPassword();
-    message += "'><br>";
+    message += "'><span style='font-weight:bold;color:#22bdff' title='The password must be at least 8 characters long'>&nbsp;&#9432;</span></td></tr>";
 
-    message += "WiFi Channel:&nbsp;";
+    message += "<tr><td>WiFi Channel</td><td>";
     message += "<input type='text' name='channel' value='";
     message += getWorld()->getParameters()->getWifiChannel();
-    message += "'><br>";
+    message += "'></td></tr>";
 
-    message += "Station SSID:&nbsp;";
+    message += "<tr><td>Station SSID</td><td>";
     message += "<input type='text' name='ssidsta' value='";
     message += getWorld()->getParameters()->getWifiStaSsid();
-    message += "'><br>";
+    message += "'></td></tr>";
 
-    message += "Station Password:&nbsp;";
+    message += "<tr><td>Station Password:</td><td>";
     message += "<input type='text' name='pwdsta' value='";
     message += getWorld()->getParameters()->getWifiStaPassword();
-    message += "'><br>";
+    message += "'><span style='font-weight:bold;color:#22bdff' title='The password must be at least 8 characters long'>&nbsp;&#9432;</span></td></tr>";
 
     IPAddress IP;    
-    message += "Station IP:&nbsp;";
+    message += "<tr><td>Station IP</td><td>";
     message += "<input type='text' name='ipsta' value='";
     IP = getWorld()->getParameters()->getWifiStaIP();
     message += IP.toString();
-    message += "'><br>";
+    message += "'></td></tr>";
 
-    message += "Station Gateway:&nbsp;";
+    message += "<tr><td>Station Gateway</td><td>";
     message += "<input type='text' name='gatewaysta' value='";
     IP = getWorld()->getParameters()->getWifiStaGateway();
     message += IP.toString();
-    message += "'><br>";
+    message += "'></td></tr>";
 
-    message += "Station Subnet:&nbsp;";
+    message += "<tr><td>Station Subnet</td><td>";
     message += "<input type='text' name='subnetsta' value='";
     IP = getWorld()->getParameters()->getWifiStaSubnet();
     message += IP.toString();
-    message += "'><br>";
+    message += "'></td></tr>";
 
-    message += "Host Port:&nbsp;";
+    message += "<tr><td>Host Port</td><td>";
     message += "<input type='text' name='hport' value='";
     message += getWorld()->getParameters()->getWifiUdpHport();
-    message += "'><br>";
+    message += "'></td></tr>";
 
-    message += "Client Port:&nbsp;";
+    message += "<tr><td>Client Port</td><td>";
     message += "<input type='text' name='cport' value='";
     message += getWorld()->getParameters()->getWifiUdpCport();
-    message += "'><br>";
+    message += "'></td></tr>";
     
-    message += "Baudrate:&nbsp;";
+    message += "<tr><td>Baudrate</td><td>";
     message += "<input type='text' name='baud' value='";
     message += getWorld()->getParameters()->getUartBaudRate();
-    message += "'><br>";
+    message += "'></td></tr>";
+
+    message += "<tr><td colspan='2'><h2 style='margin-top:15px'>S.PORT</h2></td>";
+
+    message += "<tr><td>S.PORT output enable</td><td>";
+    message += "<input type='checkbox' name='sport' ";
+    if (getWorld()->getParameters()->getSPORTenable()) {
+        message += "value='0' checked";
+    } else {
+        message += "value='1'";
+    }
+    message += "><span style='font-weight:bold;color:#22bdff' title='This feature might not be available in your hardware.'>&nbsp;&#9432;</span></td></tr>";
+
+    message += "<tr><td>Battery 1 capacity (mAh)</td><td>";
+    message += "<input type='text' name='battc' value='";
+    message += getWorld()->getParameters()->getBattCapacitymAh();
+    message += "'></td></tr>";
+
+    message += "<tr><td>Battery 2 capacity (mAh)</td><td>";
+    message += "<input type='text' name='bat2c' value='";
+    message += getWorld()->getParameters()->getBat2CapacitymAh();
+    message += "'></td></tr>";
     
-    message += "<input type='submit' value='Save' onclick="">";
-    message += "</form>";
+    message += "<tr><td colspan='2'><input style='width:100px' type='submit' value='Save' onclick=""></td></tr>";
+    message += "</form></table>";
     setNoCacheHeaders();
     webServer.send(200, FPSTR(kTEXTHTML), message);
 }
@@ -1371,6 +1396,20 @@ void handle_setParameters() // accept updated param/s via POST, save them, then 
         ok = true;
         getWorld()->getParameters()->setWifiMode(webServer.arg(kMODE).toInt());
     }
+    if(webServer.hasArg(kSPORT)) {
+        ok = true;
+        getWorld()->getParameters()->setSPORTenable(webServer.arg(kSPORT).toInt());
+    } else {
+        getWorld()->getParameters()->setSPORTenable(false);
+    }
+    if(webServer.hasArg(kBATTC)) {
+        ok = true;
+        getWorld()->getParameters()->setBattCapacitymAh(webServer.arg(kBATTC).toInt());
+    }
+    if(webServer.hasArg(kBAT2C)) {
+        ok = true;
+        getWorld()->getParameters()->setBat2CapacitymAh(webServer.arg(kBAT2C).toInt());
+    }
     if(webServer.hasArg(kREBOOT)) {
         ok = true;
         reboot = webServer.arg(kREBOOT) == F("1");
@@ -1379,7 +1418,7 @@ void handle_setParameters() // accept updated param/s via POST, save them, then 
         getWorld()->getParameters()->saveAllToEeprom();
         //-- Send new parameters back
         //handle_getParameters();
-        handle_setup_adv("<font color=green>Params are Saved to EEPROM!</font>");
+        handle_setup_adv("<div class='pr' style='margin:0'><p class='gr' style='visibility:visible;width:100%'>Settings successfully stored. Reboot to apply changes.</p></div>");
         if(reboot) {
             delay(100);
             ESP.restart();

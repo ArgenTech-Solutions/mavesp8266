@@ -63,7 +63,10 @@ uint32_t    _wifi_ipsta;
 uint32_t    _wifi_gatewaysta;
 uint32_t    _wifi_subnetsta;
 uint32_t    _uart_baud_rate;
+uint32_t    _batt_capacity_mah;
+uint32_t    _bat2_capacity_mah;
 uint32_t    _flash_left;
+bool        _sport_enable;
 
 //-- Parameters
 //   No string support in parameters so we stash a char[16] into 4 uint32_t
@@ -94,7 +97,10 @@ uint32_t    _flash_left;
      {"WIFI_IPSTA",         &_wifi_ipsta,           MavESP8266Parameters::ID_IPSTA,     sizeof(uint32_t),   MAV_PARAM_TYPE_UINT32,  false},
      {"WIFI_GATEWAYSTA",    &_wifi_gatewaysta,      MavESP8266Parameters::ID_GATEWAYSTA,sizeof(uint32_t),   MAV_PARAM_TYPE_UINT32,  false},
      {"WIFI_SUBNET_STA",    &_wifi_subnetsta,       MavESP8266Parameters::ID_SUBNETSTA, sizeof(uint32_t),   MAV_PARAM_TYPE_UINT32,  false},
-     {"UART_BAUDRATE",      &_uart_baud_rate,       MavESP8266Parameters::ID_UART,      sizeof(uint32_t),   MAV_PARAM_TYPE_UINT32,  false}
+     {"UART_BAUDRATE",      &_uart_baud_rate,       MavESP8266Parameters::ID_UART,      sizeof(uint32_t),   MAV_PARAM_TYPE_UINT32,  false},
+     {"BATT_CAPACI_MAH",    &_batt_capacity_mah,    MavESP8266Parameters::ID_BATTC,     sizeof(uint32_t),   MAV_PARAM_TYPE_UINT32,  false},
+     {"BAT2_CAPACI_MAH",    &_bat2_capacity_mah,    MavESP8266Parameters::ID_BAT2C,     sizeof(uint32_t),   MAV_PARAM_TYPE_UINT32,  false},
+     {"SPORT_ENABLE",       &_sport_enable,         MavESP8266Parameters::ID_SPORT,     sizeof(bool),       MAV_PARAM_TYPE_UINT8,   false}
 };
 
 //---------------------------------------------------------------------------------
@@ -151,6 +157,9 @@ uint32_t    MavESP8266Parameters::getWifiStaIP      () { return _wifi_ipsta;    
 uint32_t    MavESP8266Parameters::getWifiStaGateway () { return _wifi_gatewaysta;   }
 uint32_t    MavESP8266Parameters::getWifiStaSubnet  () { return _wifi_subnetsta;    }
 uint32_t    MavESP8266Parameters::getUartBaudRate   () { return _uart_baud_rate;    }
+uint32_t    MavESP8266Parameters::getBattCapacitymAh() { return _batt_capacity_mah; }
+uint32_t    MavESP8266Parameters::getBat2CapacitymAh() { return _bat2_capacity_mah; }
+bool        MavESP8266Parameters::getSPORTenable    () { return _sport_enable;      }
 
 //---------------------------------------------------------------------------------
 //-- Reset all to defaults
@@ -164,9 +173,12 @@ MavESP8266Parameters::resetToDefaults()
     _wifi_udp_hport    = DEFAULT_UDP_HPORT;
     _wifi_udp_cport    = DEFAULT_UDP_CPORT;
     _uart_baud_rate    = DEFAULT_UART_SPEED;
+    _batt_capacity_mah = 0;
+    _bat2_capacity_mah = 0;
     _wifi_ipsta        = 0;
     _wifi_gatewaysta   = 0;
     _wifi_subnetsta    = 0;
+    _sport_enable      = true;
     strncpy(_wifi_ssid,         kDEFAULT_SSID,      sizeof(_wifi_ssid));
     strncpy(_wifi_password,     kDEFAULT_PASSWORD,  sizeof(_wifi_password));
     strncpy(_wifi_ssidsta,      kDEFAULT_SSID,      sizeof(_wifi_ssidsta));
@@ -409,3 +421,26 @@ MavESP8266Parameters::setUartBaudRate(uint32_t baud)
 {
     _uart_baud_rate = baud;
 }
+
+//---------------------------------------------------------------------------------
+void
+MavESP8266Parameters::setBattCapacitymAh(uint32_t mAh)
+{
+    _batt_capacity_mah = mAh;
+}
+
+//---------------------------------------------------------------------------------
+void
+MavESP8266Parameters::setBat2CapacitymAh(uint32_t mAh)
+{
+    _bat2_capacity_mah = mAh;
+}
+
+//---------------------------------------------------------------------------------
+void
+MavESP8266Parameters::setSPORTenable(bool s_enable)
+{
+    _sport_enable = s_enable;
+}
+
+

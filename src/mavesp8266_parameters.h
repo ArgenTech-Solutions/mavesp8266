@@ -89,6 +89,9 @@ public:
         ID_GATEWAYSTA,
         ID_SUBNETSTA,
         ID_UART,
+        ID_BATTC,
+        ID_BAT2C,
+        ID_SPORT,
         ID_COUNT
     };
 
@@ -112,6 +115,9 @@ public:
     uint32_t    getWifiStaGateway           ();
     uint32_t    getWifiStaSubnet            ();
     uint32_t    getUartBaudRate             ();
+    uint32_t    getBattCapacitymAh          ();
+    uint32_t    getBat2CapacitymAh          ();
+    bool        getSPORTenable              ();
 
     void        setDebugEnabled             (int8_t enabled);
     void        setWifiMode                 (int8_t mode);
@@ -127,6 +133,9 @@ public:
     void        setWifiStaSubnet            (uint32_t addr);
     void        setUartBaudRate             (uint32_t baud);
     void        setLocalIPAddress           (uint32_t ipAddress);
+    void        setBattCapacitymAh          (uint32_t mAh);
+    void        setBat2CapacitymAh          (uint32_t mAh);
+    void        setSPORTenable              (bool s_enable);
 
     stMavEspParameters* getAt               (int index);
 

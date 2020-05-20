@@ -1402,7 +1402,6 @@ void setup() {
     }
 
     debug_init();
-    Serial1.println(F("setup() complete"));
 }
 
 void client_check() { 
@@ -1582,5 +1581,5 @@ void loop() {
         ESP.reset();
     }
 
-    sport_loop();
+    if (getWorld()->getParameters()->getSPORTenable()) sport_loop();
 }

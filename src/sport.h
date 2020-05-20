@@ -79,10 +79,10 @@ void sport_handle_mavlink(mavlink_message_t * msg);
 //=================================================================================================
 
 //#define Battery_mAh_Source  1  // Get battery mAh from the FC - note both rx and tx lines must be connected      
-//#define Battery_mAh_Source  2  // Define bat1_capacity and bat2_capacity below and use those 
-const uint16_t bat1_capacity = 5200;       
-const uint16_t bat2_capacity = 0;
-#define Battery_mAh_Source  3         // Define battery mAh in the LUA script on the Taranis/Horus - Recommended
+#define Battery_mAh_Source  2  // Define bat1_capacity and bat2_capacity below and use those 
+//const uint16_t bat1_capacity = 5200;       
+//const uint16_t bat2_capacity = 0;
+//#define Battery_mAh_Source  3         // Define battery mAh in the LUA script on the Taranis/Horus - Recommended
 
 
 #define SPort_Serial        1         // Teensy port1=pin1, port3=pin8. The default is Serial 1, but 3 is possible 

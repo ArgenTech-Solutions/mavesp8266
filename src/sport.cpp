@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include "mavesp8266.h"
+#include "mavesp8266_parameters.h"
 /*
 =====================================================================================================================
      MavToPass  (Mavlink To FrSky Passthrough) Protocol Translator
@@ -1821,7 +1823,8 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
               (ap_hud_throt_tmp > 100) &&
               (ap_hud_bar_alt_tmp == 0.0) &&
               (ap_hud_climb_tmp == 0.0))
-           {
+          {
+            #if defined Mav_Debug_All || defined Mav_Debug_Hud
               Serial1.print("Mavlink from FC #74 VFR_HUD: ");
               Serial1.print("Airspeed= "); Serial1.print(ap_hud_air_spd_tmp, 2);                 // m/s    
               Serial1.print("  Groundspeed= "); Serial1.print(ap_hud_grd_spd_tmp, 2);            // m/s
@@ -1829,6 +1832,7 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
               Serial1.print("  Throttle %= ");  Serial1.print(ap_hud_throt_tmp);                 // %
               Serial1.print("  Baro alt= "); Serial1.print(ap_hud_bar_alt_tmp, 0);               // m                  
               Serial1.print("  Climb rate= "); Serial1.println(ap_hud_climb_tmp);                // m/s
+            #endif 
           } else {
             ap_hud_air_spd = ap_hud_air_spd_tmp;
             ap_hud_grd_spd = ap_hud_grd_spd_tmp;      //  in m/s
@@ -3077,7 +3081,7 @@ void Pack_Parameters_5007(uint16_t id) {
     case 2:    // Battery pack 1 capacity
       fr_param_id = 4;
       #if (Battery_mAh_Source == 2)    // Local
-        fr_bat1_capacity = bat1_capacity;
+        fr_bat1_capacity = getWorld()->getParameters()->getBattCapacitymAh();
       #elif  (Battery_mAh_Source == 1) //  FC
         fr_bat1_capacity = ap_bat1_capacity;
       #endif 
@@ -3105,7 +3109,7 @@ void Pack_Parameters_5007(uint16_t id) {
     case 3:                 // Battery pack 2 capacity
       fr_param_id = 5;
       #if (Battery_mAh_Source == 2)    // Local
-        fr_bat2_capacity = bat2_capacity;
+        fr_bat2_capacity = getWorld()->getParameters()->getBat2CapacitymAh();
       #elif  (Battery_mAh_Source == 1) //  FC
         fr_bat2_capacity = ap_bat2_capacity;
       #endif  
