@@ -122,8 +122,8 @@ const char* kFlashMaps[7] = {
 #define str(s) #s
 #define xstr(s) str(s)
 #define GIT_VERSION_STRING xstr(PIO_SRC_REV)
-#define BUILD_DATE_STRING xstr(PIO_BUILD_DATE)
-#define BUILD_TIME_STRING xstr(PIO_BUILD_TIME)
+#define BUILD_DATE_STRING __DATE__
+#define BUILD_TIME_STRING __TIME__
 
 static uint32_t flash = 0;
 static char paramCRC[12] = {""};
@@ -423,11 +423,13 @@ static void handle_root()
 
     String op_mode = tcp_passthrumode ? "TCP port 23" : "UDP port " + String(getWorld()->getParameters()->getWifiUdpHport());
     String wifi_mode = getWorld()->getParameters()->getWifiMode() == WIFI_MODE_AP ? "Access Point" : "Station";
+    String sport_en = getWorld()->getParameters()->getSPORTenable() ? "Enabled" : "Disabled";
 
     String net_info = "<p>Local IP address: " + localIP.toString() + "<br/>";
         net_info += "MAC Address: " + mac_s + "<br/>";
         net_info += "GCS mode: " + op_mode + "<br/>";
         net_info += "WiFi mode: " + wifi_mode + "<br/>";
+        net_info += "S.PORT output: " + sport_en + "<br/>";
         net_info += "</p>";
 
     String dictionary[][2] ={
@@ -536,14 +538,13 @@ static void handle_setup_adv(String more)
     message += getWorld()->getParameters()->getUartBaudRate();
     message += "'></td></tr>";
 
-    message += "<tr><td colspan='2'><h2 style='margin-top:15px'>S.PORT</h2></td>";
+    message += "<tr><td colspan='2'><h2 style='margin:15px 0 5px 0'>S.PORT</h2>";
+    message += "<p style='margin-bottom:15px'>The S.PORT telemetry link is only available on TXMOD V2 and hardware modified TXMOD V1.</p></td>";
 
     message += "<tr><td>S.PORT output enable</td><td>";
-    message += "<input type='checkbox' name='sport' ";
+    message += "<input type='checkbox' name='sport' value='1'";
     if (getWorld()->getParameters()->getSPORTenable()) {
-        message += "value='0' checked";
-    } else {
-        message += "value='1'";
+        message += " checked";
     }
     message += "><span style='font-weight:bold;color:#22bdff' title='This feature might not be available in your hardware.'>&nbsp;&#9432;</span></td></tr>";
 

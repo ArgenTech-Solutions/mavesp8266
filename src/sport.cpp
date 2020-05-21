@@ -772,15 +772,6 @@ void sport_setup()  {
 //================================================================================================= 
 
 void sport_loop() {
-  
-  /*if (!Read_FC_To_RingBuffer()) {  //  check for SD eof
-    if (sdStatus == 5) {
-      debug_serial_println("End of SD file");
-      sdStatus = 0;  // closed after reading   
-    }
-  }*/
-
-  ap_rssi = 20;
   mavGood = true;
 
   if (ap_rssi > 0) {
@@ -1810,19 +1801,15 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
         case MAVLINK_MSG_ID_VFR_HUD:                 //  #74
         {
           if (!mavGood) break;      
-          float ap_hud_air_spd_tmp = mavlink_msg_vfr_hud_get_airspeed(&R2Gmsg);
-          float ap_hud_grd_spd_tmp = mavlink_msg_vfr_hud_get_groundspeed(&R2Gmsg);      //  in m/s
-          int16_t ap_hud_hdg_tmp = mavlink_msg_vfr_hud_get_heading(&R2Gmsg);              //  in degrees
-          uint16_t ap_hud_throt_tmp = mavlink_msg_vfr_hud_get_throttle(&R2Gmsg);           //  integer percent
-          float ap_hud_bar_alt_tmp = mavlink_msg_vfr_hud_get_alt(&R2Gmsg);              //  m
-          float ap_hud_climb_tmp = mavlink_msg_vfr_hud_get_climb(&R2Gmsg); 
+          mavlink_vfr_hud_t param;
+          mavlink_msg_vfr_hud_decode(&R2Gmsg, &param);
 
-          if ((ap_hud_air_spd_tmp == 0.0) &&
-              (ap_hud_grd_spd_tmp == 0.0) &&
-              ((ap_hud_hdg_tmp < 0)||(ap_hud_hdg_tmp > 360)) &&
-              (ap_hud_throt_tmp > 100) &&
-              (ap_hud_bar_alt_tmp == 0.0) &&
-              (ap_hud_climb_tmp == 0.0))
+          if ((param.airspeed == 0.0) ||
+              (param.groundspeed == 0.0) ||
+              ((param.heading < 0)||(param.heading > 360)) ||
+              (param.throttle > 100) ||
+              (param.alt == 0.0) ||
+              (param.climb == 0.0))
           {
             #if defined Mav_Debug_All || defined Mav_Debug_Hud
               Serial1.print("Mavlink from FC #74 VFR_HUD: ");
@@ -1834,12 +1821,12 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
               Serial1.print("  Climb rate= "); Serial1.println(ap_hud_climb_tmp);                // m/s
             #endif 
           } else {
-            ap_hud_air_spd = ap_hud_air_spd_tmp;
-            ap_hud_grd_spd = ap_hud_grd_spd_tmp;      //  in m/s
-            ap_hud_hdg = ap_hud_hdg_tmp;              //  in degrees
-            ap_hud_throt = ap_hud_throt_tmp;           //  integer percent
-            ap_hud_bar_alt = ap_hud_bar_alt_tmp;              //  m
-            ap_hud_climb = ap_hud_climb_tmp;              //  m/s
+            ap_hud_air_spd = param.airspeed;
+            ap_hud_grd_spd = param.groundspeed;      //  in m/s
+            ap_hud_hdg = param.heading;              //  in degrees
+            ap_hud_throt = param.throttle;           //  integer percent
+            ap_hud_bar_alt = param.alt;              //  m
+            ap_hud_climb = param.climb;              //  m/s
 
             cur.hdg = ap_hud_hdg;
             

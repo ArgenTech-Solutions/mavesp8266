@@ -94,7 +94,7 @@ void sport_handle_mavlink(mavlink_message_t * msg);
 //      Second: #65 RC_CHANNELS
 //      Third:  #35 RC_CHANNELS_RAW
 
-#define RSSI_Override                // Dummy RSSI - fixed at 70%                                                                                                                    
+//#define RSSI_Override                // Dummy RSSI - fixed at 70%                                                                                                                    
 
 //#define Rssi_In_Percent             // Un-comment if RSSI is already %, not relative to (254/100)
 

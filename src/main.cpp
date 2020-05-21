@@ -427,60 +427,50 @@ int r900x_getparams(String filename, bool factory_reset_first) {
         debug_serial_println(F("didn't write param file, as it contained insufficient data"));
     }
 
+    String vercmd = prefix+"I\r\n";  //ATI or RTI
+    debug_serial_print(vercmd.c_str()); // for debug only
+    Serial.write(vercmd.c_str());
+    Serial.flush(); // output buffer flush
 
-//	bool got_vers = false; // assume this to start with 
-	if ( 1 ) { 
+    String vers = "RFD SiK"; //starts with this...
+    bool ok = SmartSerial->expect_s(vers,1500);  // we really want to see 'RFD SiK' here, 
 
-		String vercmd = prefix+"I\r\n";  //ATI or RTI
-		debug_serial_print(vercmd.c_str()); // for debug only
-		Serial.write(vercmd.c_str());
-		Serial.flush(); // output buffer flush
+    if ( ok ) { 
+        delay(250);
+        debug_serial_println(F("\tGOT SiK Response from radio.\n"));
 
-		String vers = "RFD SiK"; //starts with this...
-		bool ok = SmartSerial->expect_s(vers,1500);  // we really want to see 'RFD SiK' here, 
+        // this line *may* have started with 'RFD SiK' ( we matched on the SiK above), and end with '2.65 on RFD900X R1.3' 
+        while (Serial.available() ) { 
+            char t = Serial.read();  
+            debug_serial_print(t);
+            vers += t; 
+        } // flush read buffer upto this point, displaying it for posterity ( it has version info )
 
-		if ( ok ) { 
-		    debug_serial_println(F("\tGOT SiK Response from radio.\n"));
+        debug_serial_print(F("VERSION STRING FOUND:"));
+        debug_serial_println(vers);
 
-			// this line *may* have started with 'RFD SiK' ( we matched on the SiK above), and end with '2.65 on RFD900X R1.3' 
-			while (Serial.available() ) { 
-                char t = Serial.read();  
-                debug_serial_print(t);
-                vers += t; 
-            } // flush read buffer upto this point, displaying it for posterity ( it has version info )
+        // save version string to a file for later use by the webserver to present to the user.
+        String vf = RFD_LOC_VER;
+        if (filename == RFD_REM_PAR ) {vf = RFD_REM_VER;}
+        File v = SPIFFS.open(vf, "w"); 
+        v.print(vers);
+        v.close();
 
-			if (vers.indexOf(" on ") > 10  ) { //"RFD SiK Q.QQ on RFDXXXX RZ.Z"
-				debug_serial_print(F("VERSION STRING FOUND:"));
-				debug_serial_println(vers);
-
-				// save version string to a file for later use by the webserver to present to the user.
-				String vf = RFD_LOC_VER;
-				if (filename == RFD_REM_PAR ) {vf = RFD_REM_VER;}
-				File v = SPIFFS.open(vf, "w"); 
-				v.print(vers);
-				v.close();
-				//got_vers = true;
-			}
-
-		} else {
-		    debug_serial_println(F("\tFAILED-TO-GET SiK Response from radio.\n"));
-		} 
-	}
+    } else {
+        debug_serial_println(F("\tFAILED-TO-GET SiK Response from radio.\n"));
+    } 
 	
-    if ( 1 ) { 
+    delay(1000); // time for local and remote to sync and RT values to populate.
 
-        delay(1000); // time for local and remote to sync and RT values to populate.
-
-        debug_serial_println(F("ATZ/RTZ ensures RFD900x leaves command mode "));
-        cmd = prefix+"Z\r";
-        Serial.write(cmd.c_str()); // reboot radio to restore non-command mode.
-        Serial.flush(); // output buffer flush
-        delay(200); 
-    }
+    debug_serial_println(F("ATZ/RTZ ensures RFD900x leaves command mode "));
+    cmd = prefix+"Z\r";
+    Serial.write(cmd.c_str()); // reboot radio to restore non-command mode.
+    Serial.flush(); // output buffer flush
+    delay(200); 
 
     debug_serial_println(F("r900x_getparams()- END\n"));
 
-     return linecount;
+    return linecount;
 } 
 
 // prerequisite, u should have called some form of enter_command_mode() before this one:
