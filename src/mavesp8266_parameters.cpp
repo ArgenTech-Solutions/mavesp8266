@@ -67,6 +67,7 @@ uint32_t    _batt_capacity_mah;
 uint32_t    _bat2_capacity_mah;
 uint32_t    _flash_left;
 bool        _sport_enable;
+int8_t      _raw_enable;
 
 //-- Parameters
 //   No string support in parameters so we stash a char[16] into 4 uint32_t
@@ -100,7 +101,8 @@ bool        _sport_enable;
      {"UART_BAUDRATE",      &_uart_baud_rate,       MavESP8266Parameters::ID_UART,      sizeof(uint32_t),   MAV_PARAM_TYPE_UINT32,  false},
      {"BATT_CAPACI_MAH",    &_batt_capacity_mah,    MavESP8266Parameters::ID_BATTC,     sizeof(uint32_t),   MAV_PARAM_TYPE_UINT32,  false},
      {"BAT2_CAPACI_MAH",    &_bat2_capacity_mah,    MavESP8266Parameters::ID_BAT2C,     sizeof(uint32_t),   MAV_PARAM_TYPE_UINT32,  false},
-     {"SPORT_ENABLE",       &_sport_enable,         MavESP8266Parameters::ID_SPORT,     sizeof(bool),       MAV_PARAM_TYPE_UINT8,   false}
+     {"SPORT_ENABLE",       &_sport_enable,         MavESP8266Parameters::ID_SPORT,     sizeof(bool),       MAV_PARAM_TYPE_UINT8,   false},
+     {"RAW_ENABLE",         &_raw_enable,           MavESP8266Parameters::ID_RAW_ENABLE,sizeof(int8_t),     MAV_PARAM_TYPE_INT8,    false}
 };
 
 //---------------------------------------------------------------------------------
@@ -160,6 +162,7 @@ uint32_t    MavESP8266Parameters::getUartBaudRate   () { return _uart_baud_rate;
 uint32_t    MavESP8266Parameters::getBattCapacitymAh() { return _batt_capacity_mah; }
 uint32_t    MavESP8266Parameters::getBat2CapacitymAh() { return _bat2_capacity_mah; }
 bool        MavESP8266Parameters::getSPORTenable    () { return _sport_enable;      }
+int8_t      MavESP8266Parameters::getRawEnable      () { return _raw_enable;        }
 
 //---------------------------------------------------------------------------------
 //-- Reset all to defaults

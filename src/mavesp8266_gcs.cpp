@@ -40,6 +40,11 @@
 #include "mavesp8266_parameters.h"
 #include "mavesp8266_component.h"
 
+// in txmod it makes no sense to send RADIO_STATUS as the RFD900x is
+// already sending them. Sending them twice just leads to confusing
+// and incorrect status
+#define RADIO_STATUS_ENABLE 0
+
 //---------------------------------------------------------------------------------
 MavESP8266GCS::MavESP8266GCS()
     : _udp_port(DEFAULT_UDP_HPORT)
@@ -93,6 +98,12 @@ MavESP8266GCS::_readMessage()
 {
     bool msgReceived = false;
     int udp_count = _udp.parsePacket();
+    if (udp_count <= 0 && _non_mavlink_len != 0 && _rxstatus.parse_state <= MAVLINK_PARSE_STATE_IDLE) {
+        // flush out the non-mavlink buffer when there is nothing pending. This
+        // allows us to gather non-mavlink msgs into a single write
+        _forwardTo->sendMessageRaw(_non_mavlink_buffer, _non_mavlink_len);
+        _non_mavlink_len = 0;
+    }
     if(udp_count > 0)
     {
         while(udp_count--)
@@ -107,6 +118,7 @@ MavESP8266GCS::_readMessage()
                                                         result,
                                                         &_message,
                                                         &_mav_status);
+                handle_non_mavlink(result, msgReceived);
                 if (last_parse_error != _rxstatus.parse_error) {
                     _status.parse_errors++;                
                 }
@@ -227,6 +239,7 @@ MavESP8266GCS::sendMessageRaw(uint8_t *buffer, int len)
 void
 MavESP8266GCS::_sendRadioStatus()
 {
+#if RADIO_STATUS_ENABLE
     linkStatus* st = _forwardTo->getStatus();
     uint8_t rssi = 0;
     uint8_t lostVehicleMessages = 100;
@@ -262,6 +275,7 @@ MavESP8266GCS::_sendRadioStatus()
 
     _sendSingleUdpMessage(&msg);
     _status.radio_status_sent++;
+#endif // RADIO_STATUS_SENT
 }
 
 //---------------------------------------------------------------------------------

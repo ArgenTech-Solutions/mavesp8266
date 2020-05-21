@@ -855,7 +855,7 @@ void sport_loop() {
 //================================================================================================= 
 
 void sport_handle_mavlink(mavlink_message_t * msg) {
-    debug_serial_println("mav msg rcvd: "+String(msg->msgid));
+    //debug_serial_println("mav msg rcvd: "+String(msg->msgid));
     MavToRingBuffer(msg);
 }
 //=================================================================================================  
@@ -949,7 +949,7 @@ uint16_t mav_checksum;          ///< X.25 CRC
 
     //debug_serial_print(TimeString(millis()/1000)); debug_serial_print(": ");
   
-    debug_serial_print("seq="); debug_serial_print(mav_seq); debug_serial_print("\t"); 
+    //debug_serial_print("seq="); debug_serial_print(mav_seq); debug_serial_print("\t"); 
     debug_serial_print("len="); debug_serial_print(mav_len); debug_serial_print("\t"); 
     debug_serial_print("/");
     for (int i = (j+2); i < (j+10); i++) {  // Print the header
@@ -1004,7 +1004,7 @@ uint16_t mav_checksum;          ///< X.25 CRC
 
     //debug_serial_print(TimeString(millis()/1000)); debug_serial_print(": ");
 
-    debug_serial_print("seq="); debug_serial_print(mav_seq); debug_serial_print("\t"); 
+    //debug_serial_print("seq="); debug_serial_print(mav_seq); debug_serial_print("\t"); 
     debug_serial_print("len="); debug_serial_print(mav_len); debug_serial_print("\t"); 
     debug_serial_print("/");
     for (int i = (j+2); i < (j+12); i++) {  // Print the header

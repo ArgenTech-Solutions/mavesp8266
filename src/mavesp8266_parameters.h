@@ -92,6 +92,7 @@ public:
         ID_BATTC,
         ID_BAT2C,
         ID_SPORT,
+        ID_RAW_ENABLE,
         ID_COUNT
     };
 
@@ -118,6 +119,7 @@ public:
     uint32_t    getBattCapacitymAh          ();
     uint32_t    getBat2CapacitymAh          ();
     bool        getSPORTenable              ();
+    int8_t      getRawEnable                ();
 
     void        setDebugEnabled             (int8_t enabled);
     void        setWifiMode                 (int8_t mode);

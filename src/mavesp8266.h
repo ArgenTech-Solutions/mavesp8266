@@ -66,8 +66,8 @@ class MavESP8266GCS;
 //-- TODO: This needs to come from the build system
 // maybe like this: date +"%y %m%d %H%I"
 #define MAVESP8266_VERSION_MAJOR    1
-#define MAVESP8266_VERSION_MINOR    3
-#define MAVESP8266_VERSION_BUILD    14
+#define MAVESP8266_VERSION_MINOR    4
+#define MAVESP8266_VERSION_BUILD    0
 #define MAVESP8266_VERSION          ((MAVESP8266_VERSION_MAJOR << 24) & 0xFF00000) | ((MAVESP8266_VERSION_MINOR << 16) & 0x00FF0000) | (MAVESP8266_VERSION_BUILD & 0xFFFF)
 
 
@@ -149,6 +149,11 @@ protected:
     mavlink_status_t        _mav_status;
     mavlink_message_t       _rxmsg;
     mavlink_status_t        _rxstatus;
+
+    void handle_non_mavlink(uint8_t b, bool msgReceived);
+    uint8_t _non_mavlink_buffer[270];
+    uint16_t _non_mavlink_len;
+    mavlink_parse_state_t _last_parse_state;
 };
 
 //---------------------------------------------------------------------------------

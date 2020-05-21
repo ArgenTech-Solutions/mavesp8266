@@ -621,6 +621,7 @@ int r900x_savesingle_param_and_verify_more(String prefix, String ParamID, String
             if ( ok ) { 
                 debug_serial_println(F("GOT OK from radio.\n"));
                 flush_rx_serial();
+                break;
             } else { 
 
                 // HACK. we don't get an OK reply from RT&E=XXXXXXXXXXXXX, just an echo 
@@ -672,6 +673,7 @@ int r900x_savesingle_param_and_verify_more(String prefix, String ParamID, String
                 delay(150);
                 // TODO ? ok = SmartSerial->expect("RTZ",200);
                 flush_rx_serial(); // - ie 'RTZ' response
+                break;
 
             } else { 
                 debug_serial_println(F("FALED-TO-GET OK Response from radio. - retrying:\n"));

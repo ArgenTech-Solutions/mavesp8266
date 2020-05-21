@@ -196,10 +196,11 @@ debug_serial_println("sendFile....." );
 
       inChar = waitACK();
       tryNo++;
-      if (tryNo > MAX_RETRY)
+      if (tryNo > MAX_RETRY) {
         debug_serial_println("Number of tries exceeded");
         digitalWrite(LED,HIGH);  // leave  LED OFF at end of upload if failed
         return -1;
+      }
     } while (inChar != ACK);
     
     packetNo++;
@@ -212,10 +213,11 @@ debug_serial_println("sendFile....." );
     inChar = waitACK();
     tryNo++;
     // When timed out, leave immediately
-    if (tryNo == SYNC_TIMEOUT)
+    if (tryNo == SYNC_TIMEOUT) {
       debug_serial_println("Synchronisation timed out");
       digitalWrite(LED,HIGH);  // leave  LED OFF at end of upload if failed
       return -1;
+    }
   } while (inChar != ACK);
 
   // When we get here everything was successful.

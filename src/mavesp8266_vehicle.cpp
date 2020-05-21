@@ -140,8 +140,14 @@ bool
 MavESP8266Vehicle::_readMessage()
 {
     bool msgReceived = false;
-    int avail = Serial.available();
-    for (int i = 0; i < avail; i++)
+    int16_t avail = Serial.available();
+    if (avail <= 0 && _non_mavlink_len != 0 && _rxstatus.parse_state <= MAVLINK_PARSE_STATE_IDLE) {
+        // flush out the non-mavlink buffer when there is nothing pending. This
+        // allows us to gather non-mavlink msgs into a single write
+        _forwardTo->sendMessageRaw(_non_mavlink_buffer, _non_mavlink_len);
+        _non_mavlink_len = 0;
+    }
+    while (avail--)
     {
         int result = Serial.read();
         if (result >= 0)
@@ -153,8 +159,9 @@ MavESP8266Vehicle::_readMessage()
                                                     result,
                                                     &_msg,
                                                     &_mav_status);
+            handle_non_mavlink(result, msgReceived);
             if (last_parse_error != _rxstatus.parse_error) {
-                _status.parse_errors++;                
+                _status.parse_errors++;
             }
             if(msgReceived) {
                 _status.packets_received++;
