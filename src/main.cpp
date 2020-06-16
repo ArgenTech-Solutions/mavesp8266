@@ -1276,7 +1276,9 @@ void setup() {
         //-- Connect to an existing network
         WiFi.mode(WIFI_STA);
         WiFi.config(Parameters.getWifiStaIP(), Parameters.getWifiStaGateway(), Parameters.getWifiStaSubnet(), 0U, 0U);
-        WiFi.begin(Parameters.getWifiStaSsid(), Parameters.getWifiStaPassword());
+        char * pwd = Parameters.getWifiStaPassword();
+        pwd = strlen(pwd) < 8 ? NULL : pwd;
+        WiFi.begin(Parameters.getWifiStaSsid(), pwd);
 
         //-- Wait a minute to connect
         for(int i = 0; i < 120 && WiFi.status() != WL_CONNECTED; i++) {
@@ -1459,6 +1461,8 @@ void handle_tcp_and_serial_passthrough() {
                 stats_serial_in++;
                 bytes_read++;
             }
+
+            Vehicle.parseMessage(avail, buf);
 
             tcpclient.write((char*)buf, bytes_read);
             stats_tcp_pkts++;

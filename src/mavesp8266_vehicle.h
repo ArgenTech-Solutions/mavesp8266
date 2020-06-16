@@ -50,6 +50,7 @@ public:
     int     sendMessage     (mavlink_message_t* message);
     int     sendMessageRaw   (uint8_t *buffer, int len);
     linkStatus* getStatus   ();
+    bool    parseMessage    (int, uint8_t *);
 
 private:
     bool    _readMessage    ();

@@ -215,3 +215,75 @@ MavESP8266Vehicle::_readMessage()
     return msgReceived;
 }
 
+//---------------------------------------------------------------------------------
+//-- Read MavLink message from UAS
+bool
+MavESP8266Vehicle::parseMessage(int len, uint8_t * buffer)
+{
+    bool msgReceived = false;
+    for (int i = 0; i < len; i++)
+    {
+        uint8_t result = buffer[i];
+
+        // Parsing
+        uint8_t last_parse_error = _rxstatus.parse_error;
+        msgReceived = mavlink_frame_char_buffer(&_rxmsg,
+                                                &_rxstatus,
+                                                result,
+                                                &_msg,
+                                                &_mav_status);
+        handle_non_mavlink(result, msgReceived);
+        if (last_parse_error != _rxstatus.parse_error) {
+            _status.parse_errors++;
+        }
+        if(msgReceived) {
+            _status.packets_received++;
+            //-- Is this the first packet we got?
+            if(!_heard_from) {
+                if(_msg.msgid == MAVLINK_MSG_ID_HEARTBEAT) {
+                    _heard_from     = true;
+                    _component_id   = _msg.compid;
+                    _system_id      = _msg.sysid;
+                    _seq_expected   = _msg.seq + 1;
+                    _last_heartbeat = millis();
+                }
+            } else {
+                if(_msg.msgid == MAVLINK_MSG_ID_HEARTBEAT)
+                    _last_heartbeat = millis();
+                _checkLinkErrors(&_msg);
+            }
+
+            if (msgReceived == MAVLINK_FRAMING_BAD_CRC) {
+                // we don't process messages locally with bad CRC,
+                // but we do forward them, so when new messages
+                // are added we can bridge them
+                break;
+            }
+
+#ifdef MAVLINK_FRAMING_BAD_SIGNATURE
+            if (msgReceived == MAVLINK_FRAMING_BAD_SIGNATURE) {
+                break;
+            }
+#endif
+            // convert mavlink to passthru
+            sport_handle_mavlink(&_msg);
+            
+            //-- Check for message we might be interested
+            if(getWorld()->getComponent()->handleMessage(this, &_msg)){
+                //-- Eat message (don't send it to GCS)
+                msgReceived = false;
+                continue;
+            }
+
+            break;
+        }
+    }
+    if(!msgReceived) {
+        if(_heard_from && (millis() - _last_heartbeat) > HEARTBEAT_TIMEOUT) {
+            _heard_from = false;
+            getWorld()->getLogger()->log("Heartbeat timeout from Vehicle\n");
+        }
+    }
+    return msgReceived;
+}
+

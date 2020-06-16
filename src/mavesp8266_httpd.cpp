@@ -465,7 +465,7 @@ static void handle_setup_adv(String more)
     String message = FPSTR(kHEADER);
     //message += "<h2>Wifi Setup</h2>";
     message += more;
-    message += "<table><form action='/setparameters' method='post' onsubmit=\"p=document.getElementById('pwd'); if ( p.value.length < 8 ){p.value='toshort';return false;} return true;\" >\n";
+    message += "<table><form action='/setparameters' method='post' onsubmit=\"p=document.getElementById('pwd'); if (( p.value.length < 8 )&&(p.value.length != 0)){p.value='txmod123';return false;} return true;\" >\n";
     message += "<tr><td colspan='2'><h2 style='margin-top:15px'>WiFi Mode</h2></td>";
     message += "<tr><td>WiFi Mode</td>";
     message += "<td><input type='radio' name='mode' value='0'";
