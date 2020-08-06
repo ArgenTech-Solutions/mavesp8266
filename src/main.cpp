@@ -1202,11 +1202,32 @@ String half_mac2String(byte ar[]){
   return s;
 }
 
+void mav_bridges_setup() {
+
+    //Parameters.setLocalIPAddress(localIP);
+    IPAddress gcs_ip(localIP);
+    //-- I'm getting bogus IP from the DHCP server. Broadcasting for now.
+    gcs_ip[3] = 255;
+    debug_serial_println(F("setting UDP client IP!"));
+
+    // twiddle LEDs here so user sees they are connected
+    for (int l = 0; l < 10; l++)
+    {
+        LEDState = !LEDState;
+        digitalWrite(LEDGPIO, LEDState);
+        delay(100);
+    }
+
+    GCS.begin(&Vehicle, gcs_ip);
+    debug_serial_println(F("GCS.begin finished"));
+    Vehicle.begin(&GCS);
+    debug_serial_println(F("Vehicle.begin finished"));
+}
+
 // globals
 String mac_s;
 String mac_ap_s;
 String realSize;
-bool gcs_veh_initd = false;
 
 //---------------------------------------------------------------------------------
 //-- Set things up
@@ -1364,28 +1385,8 @@ void setup() {
     r900x_setup(true); // probe for 900x and if a new firware update is needed , do it.  CAUTION may hang in retries if 900x modem is NOT attached
 
     sport_setup();
-    
-    if (!gcs_veh_initd) { 
 
-        //Parameters.setLocalIPAddress(localIP);
-        IPAddress gcs_ip(localIP);
-        //-- I'm getting bogus IP from the DHCP server. Broadcasting for now.
-        gcs_ip[3] = 255;
-        debug_serial_println(F("setting UDP client IP!")); 
-
-        // twiddle LEDs here so user sees they are connected
-        for ( int l = 0 ; l < 10; l++ ) { 
-            LEDState = !LEDState;
-            digitalWrite(LEDGPIO,LEDState);
-            delay(100);
-        }
-        
-        GCS.begin(&Vehicle, gcs_ip);
-        debug_serial_println(F("GCS.begin finished")); 
-        Vehicle.begin(&GCS);
-        debug_serial_println(F("Vehicle.begin finished")); 
-        gcs_veh_initd = true;    
-    }
+    mav_bridges_setup();
 
     debug_init();
 }
@@ -1403,11 +1404,7 @@ bool tcp_check() {
 
     if (!tcpclient.connected()) { 
         tcpclient = tcpserver.available();
-        if ( tcpclient ) { 
-            return true;
-        } else { 
-            return false;
-        }
+        return (bool)tcpclient;
     } else { 
         return true;
     }
@@ -1470,6 +1467,50 @@ void handle_tcp_and_serial_passthrough() {
         }
     #endif
 
+
+
+}
+
+void force_vehicle_datastream(){
+    // HB must be sent once a second.
+    static uint64_t next_time = 0;
+    static bool sent_once = false;
+    bool send_hb = next_time <= millis();
+
+    if (sent_once) return;
+
+    if (!GCS.heardFrom() && send_hb && Vehicle.heardFrom()) {
+        // PARAM_SET messages initiate data flow
+        mavlink_message_t param_set;
+        uint8_t system_id = 0xFF; // broadcast
+        uint8_t component_id = MAV_COMP_ID_UART_BRIDGE;
+        uint8_t target_system = 0; // broadcast
+        uint8_t target_component = MAV_COMP_ID_AUTOPILOT1;
+
+        const uint8_t mavStreams[] = {
+            MAV_DATA_STREAM_RAW_SENSORS,
+            MAV_DATA_STREAM_EXTENDED_STATUS,
+            MAV_DATA_STREAM_RC_CHANNELS,
+            MAV_DATA_STREAM_POSITION,
+            MAV_DATA_STREAM_EXTRA1,
+            MAV_DATA_STREAM_EXTRA2,
+            MAV_DATA_STREAM_EXTRA3};
+
+        const uint16_t mavRates[] = {0x04, 0x0a, 0x04, 0x0a, 0x04, 0x04, 0x04};
+        // req_message_rate The requested interval between two messages of this type
+
+        for (int i = 0; i < sizeof(mavStreams)/sizeof(mavStreams[0]); i++)
+        {
+            mavlink_msg_request_data_stream_pack(system_id, component_id, &param_set,
+                target_system, target_component, mavStreams[i], mavRates[i], 1); // start_stop 1 to start sending, 0 to stop sending
+                
+            Vehicle.sendMessage(&param_set);
+        }
+
+        sent_once = true;
+    }
+
+    next_time = millis() + 1000;
 }
 //---------------------------------------------------------------------------------
 //-- Main Loop
@@ -1500,21 +1541,22 @@ void loop() {
         }
 
         if(!updateStatus.isUpdating()) {
-            if (gcs_veh_initd) {
-                if (Component.inRawMode()) {
-                    GCS.readMessageRaw();
-                    delay(0);
-                    Vehicle.readMessageRaw();
-                } else {
-                    GCS.readMessage();
-                    delay(0);
-                    Vehicle.readMessage();
-                    LEDState = !LEDState;
-                    digitalWrite(LEDGPIO,LEDState);
-                }
+            if (Component.inRawMode()) {
+                GCS.readMessageRaw();
+                delay(0);
+                Vehicle.readMessageRaw();
+            } else {
+                GCS.readMessage();
+                delay(0);
+                Vehicle.readMessage();
+                LEDState = !LEDState;
+                digitalWrite(LEDGPIO,LEDState);
             }
         }
     }
+
+    force_vehicle_datastream();
+
     updateServer.checkUpdates(); // aka webserver.handleClient()
 
     MDNS.update();
