@@ -576,9 +576,9 @@ int r900x_getparams(String filename, bool factory_reset_first) {
 
     debug_serial_println(F("b4\n"));
     if ( ! enter_command_mode_with_retries() ) { 
-    debug_serial_println(F("failed\n"));
-    return -1; 
-}
+        debug_serial_println(F("failed\n"));
+        return -1; 
+    }
     debug_serial_println(F("after\n"));
 
     //TODO - do we need these timeouts? 

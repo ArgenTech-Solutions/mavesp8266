@@ -54,5 +54,8 @@ public:
     void    checkUpdates    ();
 };
 
+String half_mac2String(byte ar[]);
+String mac2String(byte ar[]);
+
 #endif
 

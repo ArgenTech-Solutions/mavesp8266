@@ -54,6 +54,8 @@
 
 // txmod reset button 
 #define RESETGPIO 12
+#define MAV_HEARTBEAT_PERIOD_MS 1000
+#define TCP_CLIENT_CHECK_PERIOD_MS 200
 
 // platformio doesn't seem to have F(), but has FPSTR and PSTR
 #define F(string_literal) (FPSTR(PSTR(string_literal)))
@@ -192,31 +194,6 @@ bool tcp_passthrumode = false;
 
 //#define DEBUG_LOG debug_serial_println
 
-
-String mac2String(byte ar[]){
-  String s;
-  for (byte i = 0; i < 6; ++i)
-  {
-    char buf[3];
-    sprintf(buf, "%02X", ar[i]);
-    s += buf;
-    if (i < 5) s += '-'; // traditionally a :, but we want a - in this case
-  }
-  return s;
-}
-
-String half_mac2String(byte ar[]){
-  String s;
-  for (byte i = 3; i < 6; ++i)
-  {
-    char buf[3];
-    sprintf(buf, "%02X", ar[i]);
-    s += buf;
-    if (i < 5) s += '-'; // traditionally a :, but we want a - in this case
-  }
-  return s;
-}
-
 void mav_bridges_setup() {
 
     //Parameters.setLocalIPAddress(localIP);
@@ -238,11 +215,6 @@ void mav_bridges_setup() {
     debug_serial_println(F("Vehicle.begin finished"));
 }
 
-// globals
-String mac_s;
-String mac_ap_s;
-String realSize;
-
 //---------------------------------------------------------------------------------
 //-- Set things up
 void setup() {
@@ -255,21 +227,12 @@ void setup() {
     Serial1.begin(57600);
     debug_serial_println(F("Serial1 output for DEBUG"));
 #else
-
     setup_led(); 
     set_led_state(true);
     //-- Initialized RESETGPIO (Used for "Reset To Factory") 
     pinMode(RESETGPIO, INPUT_PULLUP); 
     attachInterrupt(RESETGPIO, count_interrupts, FALLING); 
-
 #endif
-
-    // make sure programmed with correct spiffs settings.
-    realSize = String(ESP.getFlashChipRealSize());
-    String ideSize = String(ESP.getFlashChipSize());
-    bool flashCorrectlyConfigured = realSize.equals(ideSize);
-    if(!flashCorrectlyConfigured)  debug_serial_println("ERROR!!! flash incorrectly configured,  cannot start.");
-    debug_serial_println("Flash IDE size: " + ideSize + ", real size: " + realSize);
 
     DEBUG_LOG("\nConfiguring access point...\n");
     DEBUG_LOG("Free Sketch Space: %u\n", ESP.getFreeSketchSpace());
@@ -281,17 +244,14 @@ void setup() {
     WiFi.macAddress(mac);
     // as a string as well as its easier.
     String mac_half_s = half_mac2String(mac);
-    mac_s = mac2String(mac); // set this as a global, as we use it 'extern' in  http server to show to the user.
 
     // get MAC address of adaptor as used in AP mode
     byte mac_ap[6]; 
     WiFi.softAPmacAddress(mac_ap);
-    mac_ap_s = mac2String(mac_ap); // set this as a global, as we use it 'extern' in  http server to show to the user.
 
     //-- MDNS
     char mdnsName[256];
     sprintf(mdnsName, "TXMOD-%s",mac_half_s.c_str());
-    //sprintf(mdsnName, "TXMOD123");
 
     if(Parameters.getWifiMode() == WIFI_MODE_STA){
         DEBUG_LOG("\nEntering station mode...\n");
@@ -366,26 +326,15 @@ void setup() {
     DEBUG_LOG("Start WiFi Bridge\n");
     DEBUG_LOG("Local IP: %s\n", localIP.toString().c_str());
 
-
     Parameters.setLocalIPAddress(localIP);
-
-  //Setup Websocket debug logger on http port 81.
-  //webSocket.begin();
-  //webSocket.onEvent(webSocketEvent);
 
     //-- Initialize Update Server
     updateServer.begin(&updateStatus); 
 
-    // TODO , the r900x_setup() can take some time to run, is is possible that we could get the webserver responding to requests during this period?
-
-
     //try at current/stock baud rate, 57600, first.
     r900x_setup(true); // probe for 900x and if a new firware update is needed , do it.  CAUTION may hang in retries if 900x modem is NOT attached
-
     sport_setup();
-
     mav_bridges_setup();
-
     debug_init();
 }
 
@@ -464,12 +413,7 @@ void handle_tcp_and_serial_passthrough() {
             if (avail > largest_serial_packet) largest_serial_packet = avail;
         }
     #endif
-
-
-
 }
-
-#define MAV_HEARTBEAT_PERIOD_MS 1000
 
 void force_heartbeats(){
     static uint64_t next = 0;
@@ -542,17 +486,14 @@ void force_vehicle_datastream(){
         sent_once = true;
     }
 }
+
 //---------------------------------------------------------------------------------
 //-- Main Loop
-
-// periodic client check..
-int period = 200;
-unsigned long time_next = 0;
-
 void loop() {
+    static long time_next = 0;
 
     if(millis() > time_next){
-        time_next = millis()+period;
+        time_next = millis() + TCP_CLIENT_CHECK_PERIOD_MS;
         client_check();
     }
 

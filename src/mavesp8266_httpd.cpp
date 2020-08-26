@@ -49,6 +49,7 @@
 #include <ESP8266HTTPUpdateServer.h>
 
 #include "txmod_debug.h"
+#include "rfd900x.h"
 
 #include "updater.h"  // const char PROGMEM UPDATER[] , allows us to embed a copy of update.htm for the /updatepage
 
@@ -132,6 +133,9 @@ ESP8266WebServer    webServer(80);
 MavESP8266Update*   updateCB    = NULL;
 bool                started     = false;
 
+// globals
+static String mac_s;
+static String realSize;
 
 ESP8266HTTPUpdateServer httpUpdater;
 
@@ -365,8 +369,8 @@ static void handle_root()
     String int_rfd_sw_ver = "";
     String rem_rfd_sw_ver = "";
     String realSizeMB = "";
-    extern String mac_s;
-    extern String realSize;
+    String mac_s;
+    String realSize;
     extern bool tcp_passthrumode;
     extern IPAddress localIP;
 
@@ -659,66 +663,6 @@ static void handle_getStatus()
 }
 
 //---------------------------------------------------------------------------------
-/*static void handle_getStatusTcp()
-{
-    if(!flash)
-        flash = ESP.getFreeSketchSpace();
-
-    String message = FPSTR(kHEADER);
-
-// kinda hacky to use extern global vars here, but it'll do for now.
-extern long int stats_serial_in;
-extern long int stats_tcp_in;
-extern long int stats_serial_pkts;
-extern long int stats_tcp_pkts;
-//extern long int largest_serial_packet;
-//extern long int largest_tcp_packet;
-extern bool tcp_passthrumode;
-
-    message += "<p>TCP Comms Status - last 1 second of TCP throughput.</p><br>";
-
-    if ( tcp_passthrumode == true ) { 
-    message += "<font color=green>Currently In TCP pass-through mode right now.</font><br>\n";
-    } else { 
-    message += "<font color=red>NOT In TCP pass-through mode right now</font><br>\n";
-    }
-
-    message += "<font color=green>To connect your GCS in TCP mode, please connect as a TCP client to IP: 192.168.4.1, with port number 23.</font><br></p>\n";
-
-    message += "<table><tr><td width=\"240\">TCP Bytes Received from GCS</td><td>";
-    message += stats_tcp_in;
-    message += "</td></tr>";
-
-    message += "<tr><td>TCP Packets Sent to GCS</td><td>";
-    message += stats_tcp_pkts;
-    message += "</td></tr>";
-
-    message += "<tr><td>Serial Bytes Received from Vehicle</td><td>";
-    message += stats_serial_in;
-    message += "</td></tr>";
-
-    message += "<tr><td>Serial Packets Sent to Vehicle</td><td>";
-    message += stats_serial_pkts;
-    message += "</td></tr></table>";
-
-    message += "<p>System Status</p><table>";
-    message += "<tr><td width=\"240\">Flash Size</td><td>";
-    message += ESP.getFlashChipRealSize();
-    message += "</td></tr>";
-    message += "<tr><td width=\"240\">Flash Available</td><td>";
-    message += flash;
-    message += "</td></tr>";
-    message += "<tr><td>RAM Left</td><td>";
-    message += String(ESP.getFreeHeap());
-    message += "</td></tr>";
-
-    message += "</table>";
-    message += "</body>";
-    setNoCacheHeaders();
-    webServer.send(200, FPSTR(kTEXTHTML), message);
-}*/
-
-//---------------------------------------------------------------------------------
 void handle_getJLog()
 {
     debug_serial_println("handle_getJLog()");
@@ -802,13 +746,6 @@ void handle_getJSysStatus()
     );
     webServer.send(200, "application/json", message);
 }
-
-
-
-// see main.cpp
-extern int r900x_savesingle_param_and_verify(String prefix, String ParamID, String ParamVAL); 
-extern int r900x_savesingle_param_and_verify_more(String prefix, String ParamID, String ParamVAL, bool save_and_reboot); 
-extern int r900x_readsingle_param(String prefix, String ParamID);
 
 //---------------------------------------------------------------------------------
 
@@ -1440,44 +1377,6 @@ static void handle_reboot()
     ESP.restart();    
 }
 
-//---------------------------------------------------------------------------------
-//-- 404
-/* static void handle_notFound(){
-    String message = "File Not Found\n\n";
-    message += "URI: ";
-    message += webServer.uri();
-    message += "\nMethod: ";
-    message += (webServer.method() == HTTP_GET) ? "GET" : "POST";
-    message += "\nArguments: ";
-    message += webServer.args();
-    message += "\n";
-    for (uint8_t i = 0; i < webServer.args(); i++){
-        message += " " + webServer.argName(i) + ": " + webServer.arg(i) + "\n";
-    }
-    webServer.send(404, FPSTR(kTEXTPLAIN), message);
-} */
-
-
-
-
-extern bool r900x_saveparams(String file); // its in main.cpp
-
-/*
-void save900xparams() { 
-
-    String message = FPSTR(kHEADER);
-    if (r900x_saveparams(RFD_LOC_PAR) ) { 
-        message += "900x radio params saved to modem OK. ";
-    } else { 
-        message += "900x radio params save FAILED. Does file /r900x_params.txt exist? ";
-    }
-    message =+ "<a href=/>Click here to continue.</a></body></html>";
-    webServer.send(200, FPSTR(kTEXTHTML), message);
-} 
-*/
-
-
-
 // also getting below 7k or 8k or RAM hurts some form of file download, but not this, aparently:
 // https://github.com/esp8266/Arduino/issues/3205
 
@@ -1569,10 +1468,6 @@ void handle900xParamList() {
 
     return;
 }
-
-// do AT and RT commands to get 
-extern int r900x_getparams(String filename,bool factory_reset_first); // see main.cpp
-extern void r900x_setup(bool refresh);
 
 // /prefresh
 void handle900xParamRefresh() { 
@@ -1830,6 +1725,20 @@ MavESP8266Httpd::begin(MavESP8266Update* updateCB_)
 
     webServer.begin();
 
+    // Fetch system information to display
+
+    // get MAC address of adaptor as used in STA mode
+    byte mac[6]; 
+    WiFi.macAddress(mac);
+    mac_s = mac2String(mac); // set this as a global, as we use it 'extern' in  http server to show to the user.
+
+    // make sure programmed with correct spiffs settings.
+    realSize = String(ESP.getFlashChipRealSize());
+    String ideSize = String(ESP.getFlashChipSize());
+    bool flashCorrectlyConfigured = realSize.equals(ideSize);
+    if(!flashCorrectlyConfigured)  debug_serial_println("ERROR!!! flash incorrectly configured,  cannot start.");
+    debug_serial_println("Flash IDE size: " + ideSize + ", real size: " + realSize);
+
     //MDNS.addService("http", "tcp", 80);
     //swSer.printf("HTTPUpdateServer ready! Open http://%s.local/update in your browser\n", webupdatehost);
 }
@@ -1840,4 +1749,28 @@ void
 MavESP8266Httpd::checkUpdates()
 {
     webServer.handleClient();
+}
+
+String mac2String(byte ar[]){
+  String s;
+  for (byte i = 0; i < 6; ++i)
+  {
+    char buf[3];
+    sprintf(buf, "%02X", ar[i]);
+    s += buf;
+    if (i < 5) s += '-'; // traditionally a :, but we want a - in this case
+  }
+  return s;
+}
+
+String half_mac2String(byte ar[]){
+  String s;
+  for (byte i = 3; i < 6; ++i)
+  {
+    char buf[3];
+    sprintf(buf, "%02X", ar[i]);
+    s += buf;
+    if (i < 5) s += '-'; // traditionally a :, but we want a - in this case
+  }
+  return s;
 }
