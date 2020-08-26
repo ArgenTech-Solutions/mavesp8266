@@ -152,7 +152,6 @@
 
 SoftwareSerial frSerial;//(-1, Fr_txPin, true, 256);
 
-uint32_t  hb_count=0;
 uint32_t  sens_buf_full_count = 0;
 
 #if (Battery_mAh_Source == 1)  // Get battery capacity from the FC
@@ -163,27 +162,23 @@ bool      ap_bat_paramsRead=false;
 uint8_t   app_count=0;
 
 bool      homGood = false;      
-bool      mavGood = false;
 bool      rssiGood = false;
 bool      rssi35 = false;
 bool      rssi65 = false;
 bool      rssi109 = false;
 
-bool      timeGood = false;
-
-uint32_t  hb_millis=0;
 uint32_t  sport_millis=0;  
-uint32_t  fchb_millis=0;
+#ifdef Data_Streams_Enabled 
 uint32_t  rds_millis=0;
-uint32_t  acc_millis=0;
+#endif
 uint32_t  em_millis=0;
-uint32_t  sp_millis=0;
-uint32_t  mav_led_millis=0;
+#if defined Send_Sensor_Health_Messages
 uint32_t  health_millis = 0;
-uint32_t  rssi_millis = 0;
-uint32_t  param_millis = 0;
-uint32_t  now_millis = 0;
-uint32_t  prev_millis = 0;
+#endif
+
+
+
+
 
 float   lon1,lat1,lon2,lat2,alt1,alt2;  
 //=================================================================================================  
@@ -290,26 +285,11 @@ int32_t    ap_lat24 = 0;              // 7 assumed decimal places
 int32_t    ap_lon24 = 0;              // 7 assumed decimal places
 int32_t    ap_amsl24 = 0;             // 1000 = 1m
 uint16_t   ap_eph;                    // GPS HDOP horizontal dilution of position (unitless)
-uint16_t   ap_epv;                    // GPS VDOP vertical dilution of position (unitless)
 uint16_t   ap_vel;                    // GPS ground speed (m/s * 100) cm/s
 uint16_t   ap_cog;                    // Course over ground in degrees * 100, 0.0..359.99 degrees
 // mav2
-int32_t    ap_alt_ellipsoid;          // mm    Altitude (above WGS84, EGM96 ellipsoid). Positive for up.
-uint32_t   ap_h_acc;                  // mm    Position uncertainty. Positive for up.
-uint32_t   ap_v_acc;                  // mm    Altitude uncertainty. Positive for up.
-uint32_t   ap_vel_acc;                // mm    Speed uncertainty. Positive for up.
-uint32_t   ap_hdg_acc;                // degE5   Heading / track uncertainty
 
 // Message #26  SCALED_IMU
-int16_t   ap26_xacc = 0;
-int16_t   ap26_yacc = 0;
-int16_t   ap26_zacc = 0;
-int16_t   ap26_xgyro = 0;
-int16_t   ap26_ygyro = 0;
-int16_t   ap26_zgyro = 0;
-int16_t   ap26_xmag = 0;
-int16_t   ap26_ymag = 0;
-int16_t   ap26_zmag = 0;
 // mav2
 int16_t ap26_temp = 0;             // cdegC
 
@@ -337,18 +317,12 @@ int16_t    ap_temperature;       // Temperature measurement (0.01 degrees celsiu
 float ap_roll;                   // Roll angle (rad, -pi..+pi)
 float ap_pitch;                  // Pitch angle (rad, -pi..+pi)
 float ap_yaw;                    // Yaw angle (rad, -pi..+pi)
-float ap_rollspeed;              // Roll angular speed (rad/s)
-float ap_pitchspeed;             // Pitch angular speed (rad/s)
-float ap_yawspeed;               // Yaw angular speed (rad/s)
 
 // Message GLOBAL_POSITION_INT ( #33 ) (Filtered)
 int32_t ap_lat33;          // Latitude, expressed as degrees * 1E7
 int32_t ap_lon33;          // Longitude, expressed as degrees * 1E7
 int32_t ap_amsl33;         // Altitude above mean sea level (millimeters)
 int32_t ap_alt_ag;         // Altitude above ground (millimeters)
-int16_t ap_vx;             // Ground X Speed (Latitude, positive north), expressed as m/s * 100
-int16_t ap_vy;             // Ground Y Speed (Longitude, positive east), expressed as m/s * 100
-int16_t ap_vz;             // Ground Z Speed (Altitude, positive down), expressed as m/s * 100
 uint16_t ap_gps_hdg;           // Vehicle heading (yaw angle) in degrees * 100, 0.0..359.99 degrees
 
 // Message #35 RC_CHANNELS_RAW
@@ -356,25 +330,9 @@ uint8_t ap_rssi;
 bool    ap_rssi_ft = true; // first rssi connection
 uint8_t ap_rssi35;
 
-// Message #36 Servo_Output
-bool      ap_servo_flag = false;  // true when servo_output record received
-uint8_t   ap_port; 
-uint16_t  ap_servo_raw[16];       // 16 channels, [0] thru [15] 
-
 // Message #39 Mission_Item
 //  Generic Mavlink Header defined above
 uint16_t  ap_ms_seq;            // Sequence
-uint8_t   ap_ms_frame;          // The coordinate system of the waypoint.
-uint16_t  ap_ms_command;        // The scheduled action for the waypoint.
-uint8_t   ap_ms_current;        // false:0, true:1
-uint8_t   ap_ms_autocontinue;   //  Autocontinue to next waypoint
-float     ap_ms_param1;         // PARAM1, see MAV_CMD enum
-float     ap_ms_param2;         // PARAM2, see MAV_CMD enum
-float     ap_ms_param3;         // PARAM3, see MAV_CMD enum
-float     ap_ms_param4;         // PARAM4, see MAV_CMD enum
-float     ap_ms_x;              // PARAM5 / local: X coordinate, global: latitude
-float     ap_ms_y;              // PARAM6 / local: Y coordinate, global: longitude
-float     ap_ms_z;              // PARAM7 / local: Z coordinate, global: altitude (relative or absolute, depending on frame).
 uint8_t   ap_mission_type;      // MAV_MISSION_TYPE - Mavlink 2
 
 // Message #40 Mission_Request
@@ -402,13 +360,8 @@ uint16_t   gcs_seq;              // Sequence #
 uint8_t    gcs_mission_type;      
 
 // Message #62 Nav_Controller_Output
-float     ap_nav_roll;           // Current desired roll
-float     ap_nav_pitch;          // Current desired pitch
-int16_t   ap_nav_bearing;        // Current desired heading
 int16_t   ap_target_bearing;     // Bearing to current waypoint/target
 uint16_t  ap_wp_dist;            // Distance to active waypoint
-float     ap_alt_error;          // Current altitude error
-float     ap_aspd_error;         // Current airspeed error
 float     ap_xtrack_error;       // Current crosstrack error on x-y plane
 
 // Message #65 RC_Channels
@@ -420,6 +373,7 @@ uint16_t  ap_chan_raw[18];       // 16 + 2 channels, [0] thru [17]
 uint8_t  ap_rssi65;              // Receive signal strength indicator, 0: 0%, 100: 100%, 255: invalid/unknown
 
 // Message #73 Mission_Item_Int
+#if defined Mav_Debug_All || defined Mav_Debug_Mission
 uint8_t   ap73_target_system;    
 uint8_t   ap73_target_component;    
 uint16_t  ap73_seq;             // Waypoint ID (sequence number)
@@ -435,6 +389,7 @@ int32_t   ap73_x;               // PARAM5 / local: x position in meters * 1e4, g
 int32_t   ap73_y;               // PARAM6 / y position: local: x position in meters * 1e4, global: longitude in degrees *10^7
 float     ap73_z;               // PARAM7 / z position: global: altitude in meters (relative or absolute, depending on frame.
 uint8_t   ap73_mission_type;    // Mav2   MAV_MISSION_TYPE  Mission type.
+#endif
 
 // Message #74 VFR_HUD  
 float    ap_hud_air_spd;
@@ -446,12 +401,12 @@ float    ap_hud_climb;
 
 // Message #109 RADIO_status (Sik radio firmware)
 uint8_t ap_rssi109;             // local signal strength
-uint8_t ap_remrssi;             // remote signal strength
-uint8_t ap_txbuf;               // how full the tx buffer is as a percentage
-uint8_t ap_noise;               // background noise level
-uint8_t ap_remnoise;            // remote background noise level
-uint16_t ap_rxerrors;           // receive errors
-uint16_t ap_fixed;              // count of error corrected packets
+// uint8_t ap_remrssi;             // remote signal strength
+// uint8_t ap_txbuf;               // how full the tx buffer is as a percentage
+// uint8_t ap_noise;               // background noise level
+// uint8_t ap_remnoise;            // remote background noise level
+// uint16_t ap_rxerrors;           // receive errors
+// uint16_t ap_fixed;              // count of error corrected packets
 
 // Message  #125 POWER_status 
 uint16_t  ap_Vcc;                 // 5V rail voltage in millivolts
@@ -596,8 +551,6 @@ int8_t    fr_ms_offset;             // Next WP bearing offset from COG
 uint16_t  fr_wind_speed;            // dm/s
 uint16_t  fr_direction;             // Wind direction relative to yaw, deg / 3
 
-//0xF103
-uint32_t fr_rssi;
 //=================================================================================================   
 //                            Ring and Sensor Buffers 
 //=================================================================================================   
@@ -701,9 +654,6 @@ void ReadSPort(void);
 void DisplayByte(byte);
 uint8_t PX4FlightModeNum(uint8_t, uint8_t);
 
-
-
-
 //=================================================================================================
 //=================================================================================================   
 //                                      S   E   T   U  P 
@@ -753,16 +703,15 @@ void sport_setup()  {
 //=================================================================================================   
 //                                    S E T U P   O T H E R
 //=================================================================================================   
-  mavGood = false;
   homGood = false;     
-  hb_count = 0;
-  hb_millis=millis();
   sport_millis = millis();
-  fchb_millis=millis();
-  acc_millis=millis();
+  #ifdef Data_Streams_Enabled 
   rds_millis=millis();
+  #endif
   em_millis=millis();
+  #if defined Send_Sensor_Health_Messages
   health_millis = millis();
+  #endif
    
 }
 //================================================================================================= 
@@ -772,7 +721,7 @@ void sport_setup()  {
 //================================================================================================= 
 
 void sport_loop() {
-  mavGood = true;
+  static uint32_t  param_millis = 0;
 
   if (ap_rssi > 0) {
     if (ap_rssi_ft) {  // first time we have an rc connection
@@ -789,12 +738,15 @@ void sport_loop() {
     }
   }
 
-  bool rssiOverride = false;
   #ifdef RSSI_Override
-    rssiOverride = true;
+  const bool rssiOverride = true;
+  #else
+  const bool rssiOverride = false;
   #endif
 
-  if (((rssiGood) || ((rssiOverride) && mavGood)) && (millis() - rssi_millis > 700)) {
+  static uint32_t rssi_millis = 0;
+
+  if ((rssiGood || rssiOverride) && (millis() - rssi_millis > 700)) {
     PackSensorTable(0xF101, 0);   // 0xF101 RSSI 
     rssi_millis = millis(); 
   }   
@@ -804,35 +756,22 @@ void sport_loop() {
   }
 
   #ifdef Data_Streams_Enabled 
-  if(mavGood) {                      // If we have a link, request data streams from MavLink every 5s
     if(millis()-rds_millis > 5000) {
     rds_millis=millis();
     debug_serial_println("Requesting data streams"); 
     RequestDataStreams();   // must have Teensy Tx connected to Taranis/FC rx  (When SRx not enumerated)
     }
-  }
   #endif 
 
-  /*if(millis()- fchb_millis > 2000) {  // MavToPass heartbeat to FC every 2 seconds
-    fchb_millis=millis();
-    #if defined Mav_Debug_MavToPass_Heartbeat
-      debug_serial_println("Sending MavToPass hb to FC");  
-    #endif    
-   Send_FC_Heartbeat();   // must have MavToPass tx pin connected to Telem radio rx pin  
-  }*/
-
   #if defined Request_Missions_From_FC || defined Request_Mission_Count_From_FC
-  if (mavGood) {
     if (!ap_ms_list_req) {
       RequestMissionList();  //  #43
       ap_ms_list_req = true;
     }
-  }
   #endif
 
   #if (Battery_mAh_Source == 1)  // Get battery capacity from the FC
   // Request battery capacity params 
-  if (mavGood) {
     if (!ap_bat_paramsReq) {
       Param_Request_Read(356);    // Request Bat1 capacity   do this twice in case of lost frame
       Param_Request_Read(356);    
@@ -846,7 +785,6 @@ void sport_loop() {
         debug_serial_println("Battery params successfully read"); 
       }
     } 
-  }
   #endif 
  
 }
@@ -1130,28 +1068,11 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
             
           ap_system_status = mavlink_msg_heartbeat_get_system_status(&R2Gmsg);
           ap_mavlink_version = mavlink_msg_heartbeat_get_mavlink_version(&R2Gmsg);
-          hb_millis=millis(); 
 
           if ((ap_base_mode >> 7) && (!homGood)) 
             MarkHome();  // If motors armed for the first time, then mark this spot as home
 
-          hb_count++; 
-          
-          if(!mavGood) {
-            //debug_serial_print("hb_count=");
-            //debug_serial_print(hb_count);
-            //debug_serial_println("");
-
-            if(hb_count >= 3) {        // If  3 heartbeats from MavLink then we are connected
-              mavGood=true;
-              debug_serial_println("mavgood=true");
-              }
-            }
-
           PackSensorTable(0x5001, 0);
-
-          // PackSensorTable(0x5007, 0);
-
 
           #if defined Mav_Debug_All || defined Mav_Debug_FC_Heartbeat
             debug_serial_print("Mavlink from FC #0 Heartbeat: ");           
@@ -1174,7 +1095,6 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
           
           break;
         case MAVLINK_MSG_ID_SYS_STATUS:   // #1
-          if (!mavGood) break;
 
           ap_onboard_control_sensors_health = mavlink_msg_sys_status_get_onboard_control_sensors_health(&R2Gmsg);
           ap_voltage_battery1= Get_Volt_Average1(mavlink_msg_sys_status_get_voltage_battery(&R2Gmsg));        // 1000 = 1V  i.e mV
@@ -1281,28 +1201,8 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
              
          PackSensorTable(0x5003, 0);
          
-         break;
-        case MAVLINK_MSG_ID_SYSTEM_TIME:   // #2
-          if (!mavGood) break;
-          ap_time_unix_usec= (mavlink_msg_system_time_get_time_unix_usec(&R2Gmsg));    // us
-          ap_time_boot_ms= (mavlink_msg_system_time_get_time_boot_ms(&R2Gmsg));        //  ms
-          if ( ap_time_unix_usec != 0 ) {
-            timeGood = true;
-          }
-          #if defined Mav_Debug_All || defined Mav_Debug_System_Time
-            debug_serial_print("Mavlink from FC #2 System_Time: ");        
-            debug_serial_print(" Unix secs="); debug_serial_print((float)(ap_time_unix_usec/1E6), 6);  
-            debug_serial_print("  Boot secs="); debug_serial_println((float)(ap_time_boot_ms/1E3), 0);   
-          #endif
-          break;                   
-        case MAVLINK_MSG_ID_PARAM_REQUEST_READ:   // #20 - OUTGOING TO UAV
-          if (!mavGood) break;
-          break;     
-        case MAVLINK_MSG_ID_PARAM_REQUEST_LIST:   // #21 - OUTGOING TO UAV
-          if (!mavGood) break;
-          break;  
+         break;              
         case MAVLINK_MSG_ID_PARAM_VALUE:          // #22
-          if (!mavGood) break;        
           len=mavlink_msg_param_value_get_param_id(&R2Gmsg, ap_param_id);
           ap_param_value=mavlink_msg_param_value_get_param_value(&R2Gmsg);
           ap_param_count=mavlink_msg_param_value_get_param_count(&R2Gmsg);
@@ -1341,7 +1241,6 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
           #endif       
           break;    
         case MAVLINK_MSG_ID_GPS_RAW_INT:          // #24
-          if (!mavGood) break;        
           ap_fixtype = mavlink_msg_gps_raw_int_get_fix_type(&R2Gmsg);                   // 0 = No GPS, 1 =No Fix, 2 = 2D Fix, 3 = 3D Fix
           ap_sat_visible =  mavlink_msg_gps_raw_int_get_satellites_visible(&R2Gmsg);    // number of visible satellites
           if(ap_fixtype > 2)  {
@@ -1349,15 +1248,8 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
             ap_lon24 = mavlink_msg_gps_raw_int_get_lon(&R2Gmsg);
             ap_amsl24 = mavlink_msg_gps_raw_int_get_alt(&R2Gmsg);                    // 1m =1000 
             ap_eph = mavlink_msg_gps_raw_int_get_eph(&R2Gmsg);                       // GPS HDOP 
-            ap_epv = mavlink_msg_gps_raw_int_get_epv(&R2Gmsg);                       // GPS VDOP 
-            ap_vel = mavlink_msg_gps_raw_int_get_vel(&R2Gmsg);                       // GPS ground speed (m/s * 100)
             ap_cog = mavlink_msg_gps_raw_int_get_cog(&R2Gmsg);                       // Course over ground (NOT heading) in degrees * 100
      // mav2
-           ap_alt_ellipsoid = mavlink_msg_gps_raw_int_get_alt_ellipsoid(&R2Gmsg);    // mm    Altitude (above WGS84, EGM96 ellipsoid). Positive for up.
-           ap_h_acc = mavlink_msg_gps_raw_int_get_h_acc(&R2Gmsg);                    // mm    Position uncertainty. Positive for up.
-           ap_v_acc = mavlink_msg_gps_raw_int_get_v_acc(&R2Gmsg);                    // mm    Altitude uncertainty. Positive for up.
-           ap_vel_acc = mavlink_msg_gps_raw_int_get_vel_acc(&R2Gmsg);                // mm    Speed uncertainty. Positive for up.
-           ap_hdg_acc = mavlink_msg_gps_raw_int_get_hdg_acc(&R2Gmsg);                // degE5   Heading / track uncertainty       
 
            cur.lat =  (float)ap_lat24 / 1E7;
            cur.lon = (float)ap_lon24 / 1E7;
@@ -1383,15 +1275,8 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
             debug_serial_print("  longitude="); debug_serial_print((float)(ap_lon24)/1E7, 7);
             debug_serial_print("  gps alt amsl="); debug_serial_print((float)(ap_amsl24)/1E3, 1);
             debug_serial_print("  eph (hdop)="); debug_serial_print((float)ap_eph);                 // HDOP
-            debug_serial_print("  epv (vdop)="); debug_serial_print((float)ap_epv);
-            debug_serial_print("  vel="); debug_serial_print((float)ap_vel / 100, 3);           // GPS ground speed (m/s)
             debug_serial_print("  cog="); debug_serial_print((float)ap_cog / 100, 1);           // Course over ground in degrees
             //  mav2
-            debug_serial_print("  alt_ellipsoid)="); debug_serial_print(ap_alt_ellipsoid / 1000, 2);      // alt_ellipsoid in mm
-            debug_serial_print("  h_acc="); debug_serial_print(ap_h_acc);                       // Position uncertainty in mm. Positive for up.
-            debug_serial_print("  v_acc="); debug_serial_print(ap_v_acc);                       // Altitude uncertainty in mm. Positive for up.
-            debug_serial_print("  ap_vel_acc="); debug_serial_print(ap_vel_acc);                // Speed uncertainty. Positive for up.
-            debug_serial_print("  ap_hdg_acc="); debug_serial_print(ap_hdg_acc);                // degE5   Heading / track uncertainty 
             debug_serial_println();
           #endif 
 
@@ -1401,40 +1286,9 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
            PackSensorTable(0x5004, 0);  // 0x5004 Home         
               
           break;
-        case MAVLINK_MSG_ID_SCALED_IMU:   // #26
-
-          if (!mavGood) break;        
-          ap26_xacc = mavlink_msg_scaled_imu_get_xacc(&R2Gmsg);                 
-          ap26_yacc = mavlink_msg_scaled_imu_get_yacc(&R2Gmsg);
-          ap26_zacc = mavlink_msg_scaled_imu_get_zacc(&R2Gmsg);
-          ap26_xgyro = mavlink_msg_scaled_imu_get_xgyro(&R2Gmsg);                 
-          ap26_ygyro = mavlink_msg_scaled_imu_get_ygyro(&R2Gmsg);
-          ap26_zgyro = mavlink_msg_scaled_imu_get_zgyro(&R2Gmsg);
-          ap26_xmag = mavlink_msg_scaled_imu_get_xmag(&R2Gmsg);                 
-          ap26_ymag = mavlink_msg_scaled_imu_get_ymag(&R2Gmsg);
-          ap26_zmag = mavlink_msg_scaled_imu_get_zmag(&R2Gmsg);
-          //  mav2
-          // TODO ap26_temp = mavlink_msg_scaled_imu_get_temperature(&R2Gmsg);         
-          
-          #if defined Mav_Debug_All || defined Mav_Debug_Scaled_IMU
-            debug_serial_print("Mavlink from FC #26 Scaled_IMU: ");
-            debug_serial_print("xacc="); debug_serial_print((float)ap26_xacc / 1000, 3); 
-            debug_serial_print("  yacc="); debug_serial_print((float)ap26_yacc / 1000, 3); 
-            debug_serial_print("  zacc="); debug_serial_print((float)ap26_zacc / 1000, 3);
-            debug_serial_print("  xgyro="); debug_serial_print((float)ap26_xgyro / 1000, 3); 
-            debug_serial_print("  ygyro="); debug_serial_print((float)ap26_ygyro / 1000, 3); 
-            debug_serial_print("  zgyro="); debug_serial_print((float)ap26_zgyro / 1000, 3);
-            debug_serial_print("  xmag="); debug_serial_print((float)ap26_xmag / 1000, 3); 
-            debug_serial_print("  ymag="); debug_serial_print((float)ap26_ymag / 1000, 3); 
-            debug_serial_print("  zmag="); debug_serial_print((float)ap26_zmag / 1000, 3);  
-            debug_serial_print("  temp="); debug_serial_println((float)ap26_temp / 100, 2);    // cdegC                              
-          #endif 
-
-          break; 
           
         case MAVLINK_MSG_ID_RAW_IMU:   // #27
         #if defined Decode_Non_Essential_Mav
-          if (!mavGood) break;        
           ap27_xacc = mavlink_msg_raw_imu_get_xacc(&R2Gmsg);                 
           ap27_yacc = mavlink_msg_raw_imu_get_yacc(&R2Gmsg);
           ap27_zacc = mavlink_msg_raw_imu_get_zacc(&R2Gmsg);
@@ -1466,7 +1320,6 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
     
         case MAVLINK_MSG_ID_SCALED_PRESSURE:         // #29
         #if defined Decode_Non_Essential_Mav
-          if (!mavGood) break;        
           ap_press_abs = mavlink_msg_scaled_pressure_get_press_abs(&R2Gmsg);
           ap_temperature = mavlink_msg_scaled_pressure_get_temperature(&R2Gmsg);
           #if defined Mav_Debug_All || defined Mav_Debug_Scaled_Pressure
@@ -1479,14 +1332,10 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
         #endif                          
           break;  
         case MAVLINK_MSG_ID_ATTITUDE:                // #30
-          if (!mavGood) break;   
 
           ap_roll = mavlink_msg_attitude_get_roll(&R2Gmsg);              // Roll angle (rad, -pi..+pi)
           ap_pitch = mavlink_msg_attitude_get_pitch(&R2Gmsg);            // Pitch angle (rad, -pi..+pi)
           ap_yaw = mavlink_msg_attitude_get_yaw(&R2Gmsg);                // Yaw angle (rad, -pi..+pi)
-          ap_rollspeed = mavlink_msg_attitude_get_rollspeed(&R2Gmsg);    // Roll angular speed (rad/s)
-          ap_pitchspeed = mavlink_msg_attitude_get_pitchspeed(&R2Gmsg);  // Pitch angular speed (rad/s)
-          ap_yawspeed = mavlink_msg_attitude_get_yawspeed(&R2Gmsg);      // Yaw angular speed (rad/s)           
 
           ap_roll = RadToDeg(ap_roll);   // Now degrees
           ap_pitch = RadToDeg(ap_pitch);
@@ -1506,14 +1355,11 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
 
           break;  
         case MAVLINK_MSG_ID_GLOBAL_POSITION_INT:     // #33
-          if ((!mavGood) || (ap_fixtype < 3)) break;  
+          if (ap_fixtype < 3) break;  
           ap_lat33 = mavlink_msg_global_position_int_get_lat(&R2Gmsg);             // Latitude, expressed as degrees * 1E7
           ap_lon33 = mavlink_msg_global_position_int_get_lon(&R2Gmsg);             // Pitch angle (rad, -pi..+pi)
           ap_amsl33 = mavlink_msg_global_position_int_get_alt(&R2Gmsg);          // Altitude above mean sea level (millimeters)
           ap_alt_ag = mavlink_msg_global_position_int_get_relative_alt(&R2Gmsg); // Altitude above ground (millimeters)
-          ap_vx = mavlink_msg_global_position_int_get_vx(&R2Gmsg);               //  Ground X Speed (Latitude, positive north), expressed as m/s * 100
-          ap_vy = mavlink_msg_global_position_int_get_vy(&R2Gmsg);               //  Ground Y Speed (Longitude, positive east), expressed as m/s * 100
-          ap_vz = mavlink_msg_global_position_int_get_vz(&R2Gmsg);               // Ground Z Speed (Altitude, positive down), expressed as m/s * 100
           ap_gps_hdg = mavlink_msg_global_position_int_get_hdg(&R2Gmsg);         // Vehicle heading (yaw angle) in degrees * 100, 0.0..359.99 degrees        
  
           cur.lat = (float)ap_lat33 / 1E7;
@@ -1527,15 +1373,11 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
             debug_serial_print(" ap_lon="); debug_serial_print((float)ap_lon33 / 1E7, 6);
             debug_serial_print(" ap_amsl="); debug_serial_print((float)ap_amsl33 / 1E3, 0);
             debug_serial_print(" ap_alt_ag="); debug_serial_print((float)ap_alt_ag / 1E3, 1);           
-            debug_serial_print(" ap_vx="); debug_serial_print((float)ap_vx / 100, 2);
-            debug_serial_print(" ap_vy="); debug_serial_print((float)ap_vy / 100, 2);
-            debug_serial_print(" ap_vz="); debug_serial_print((float)ap_vz / 100, 2);
             debug_serial_print(" ap_gps_hdg="); debug_serial_println((float)ap_gps_hdg / 100, 1);
           #endif  
                 
           break;  
         case MAVLINK_MSG_ID_RC_CHANNELS_RAW:         // #35
-          if (!mavGood) break; 
           ap_rssi35 = mavlink_msg_rc_channels_raw_get_rssi(&R2Gmsg);
           rssi35 = true;  
                
@@ -1560,41 +1402,6 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
           #endif                    
           break;  
         case MAVLINK_MSG_ID_SERVO_OUTPUT_RAW :          // #36
-          if (!mavGood) break; 
-      
-          ap_port = mavlink_msg_servo_output_raw_get_port(&R2Gmsg);
-          ap_servo_raw[0] = mavlink_msg_servo_output_raw_get_servo1_raw(&R2Gmsg);   
-          ap_servo_raw[1] = mavlink_msg_servo_output_raw_get_servo2_raw(&R2Gmsg);
-          ap_servo_raw[2] = mavlink_msg_servo_output_raw_get_servo3_raw(&R2Gmsg);   
-          ap_servo_raw[3] = mavlink_msg_servo_output_raw_get_servo4_raw(&R2Gmsg);  
-          ap_servo_raw[4] = mavlink_msg_servo_output_raw_get_servo5_raw(&R2Gmsg);   
-          ap_servo_raw[5] = mavlink_msg_servo_output_raw_get_servo6_raw(&R2Gmsg);
-          ap_servo_raw[6] = mavlink_msg_servo_output_raw_get_servo7_raw(&R2Gmsg);   
-          ap_servo_raw[7] = mavlink_msg_servo_output_raw_get_servo8_raw(&R2Gmsg); 
-          /* 
-           *  not supported right now
-          ap_servo_raw[8] = mavlink_R2Gmsg_servo_output_raw_get_servo9_raw(&R2Gmsg);   
-          ap_servo_raw[9] = mavlink_R2Gmsg_servo_output_raw_get_servo10_raw(&R2Gmsg);
-          ap_servo_raw[10] = mavlink_R2Gmsg_servo_output_raw_get_servo11_raw(&R2Gmsg);   
-          ap_servo_raw[11] = mavlink_R2Gmsg_servo_output_raw_get_servo12_raw(&R2Gmsg); 
-          ap_servo_raw[12] = mavlink_R2Gmsg_servo_output_raw_get_servo13_raw(&R2Gmsg);   
-          ap_servo_raw[13] = mavlink_R2Gmsg_servo_output_raw_get_servo14_raw(&R2Gmsg);
-          ap_servo_raw[14] = mavlink_R2Gmsg_servo_output_raw_get_servo15_raw(&R2Gmsg);   
-          ap_servo_raw[15] = mavlink_R2Gmsg_servo_output_raw_get_servo16_raw(&R2Gmsg);
-          */       
-      
-          #if defined Mav_Debug_All ||  defined Mav_Debug_Servo
-            debug_serial_print("Mavlink from FC #36 servo_output: ");
-            debug_serial_print("ap_port="); debug_serial_print(ap_port); 
-            debug_serial_print(" PWM: ");
-            for (int i=0 ; i < 8; i++) {
-              debug_serial_print(" "); 
-              debug_serial_print(i+1);
-              debug_serial_print("=");  
-              debug_serial_print(ap_servo_raw[i]);   
-            }                         
-            debug_serial_println();     
-          #endif  
           
           #if defined PlusVersion
             PackSensorTable(0x50F1, 0);   // 0x50F1  SERVO_OUTPUT_RAW
@@ -1602,35 +1409,12 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
                      
           break;  
         case MAVLINK_MSG_ID_MISSION_ITEM :          // #39
-          if (!mavGood) break;
             ap_ms_seq = mavlink_msg_mission_item_get_seq(&R2Gmsg);
-            ap_ms_frame = mavlink_msg_mission_item_get_frame(&R2Gmsg);                // The coordinate system of the waypoint.
-            ap_ms_command = mavlink_msg_mission_item_get_command(&R2Gmsg);            // The scheduled action for the waypoint.
-            ap_ms_current = mavlink_msg_mission_item_get_current(&R2Gmsg);            // false:0, true:1
-            ap_ms_autocontinue = mavlink_msg_mission_item_get_autocontinue(&R2Gmsg);  //  Autocontinue to next waypoint
-            ap_ms_param1 = mavlink_msg_mission_item_get_param1(&R2Gmsg);              // PARAM1, see MAV_CMD enum
-            ap_ms_param2 = mavlink_msg_mission_item_get_param2(&R2Gmsg);              // PARAM2, see MAV_CMD enum
-            ap_ms_param3 = mavlink_msg_mission_item_get_param3(&R2Gmsg);              // PARAM3, see MAV_CMD enum
-            ap_ms_param3 = mavlink_msg_mission_item_get_param4(&R2Gmsg);              // PARAM4, see MAV_CMD enum
-            ap_ms_x = mavlink_msg_mission_item_get_x(&R2Gmsg);                        // PARAM5 / local: X coordinate, global: latitude
-            ap_ms_y = mavlink_msg_mission_item_get_y(&R2Gmsg);                        // PARAM6 / local: Y coordinate, global: longitude
-            ap_ms_z = mavlink_msg_mission_item_get_z(&R2Gmsg);                        // PARAM7 / local: Z coordinate, global: altitude (relative or absolute, depending on frame).
             ap_mission_type = mavlink_msg_mission_item_get_z(&R2Gmsg);                // MAV_MISSION_TYPE
                      
             #if defined Mav_Debug_All || defined Mav_Debug_Mission
               debug_serial_print("Mavlink from FC #39 Mission Item: ");
-              debug_serial_print("ap_ms_seq="); debug_serial_print(ap_ms_seq);  
-              debug_serial_print(" ap_ms_frame="); debug_serial_print(ap_ms_frame);   
-              debug_serial_print(" ap_ms_command="); debug_serial_print(ap_ms_command);   
-              debug_serial_print(" ap_ms_current="); debug_serial_print(ap_ms_current);   
-              debug_serial_print(" ap_ms_autocontinue="); debug_serial_print(ap_ms_autocontinue);  
-              debug_serial_print(" ap_ms_param1="); debug_serial_print(ap_ms_param1, 7);   
-              debug_serial_print(" ap_ms_param2="); debug_serial_print(ap_ms_param2, 7);   
-              debug_serial_print(" ap_ms_param3="); debug_serial_print(ap_ms_param3, 7);  
-              debug_serial_print(" ap_ms_param4="); debug_serial_print(ap_ms_param4, 7); 
-              debug_serial_print(" ap_ms_x="); debug_serial_print(ap_ms_x, 7);   
-              debug_serial_print(" ap_ms_y="); debug_serial_print(ap_ms_y, 7);   
-              debug_serial_print(" ap_ms_z="); debug_serial_print(ap_ms_z,0); 
+              debug_serial_print(" ap_ms_seq="); debug_serial_print(ap_ms_seq);  
               debug_serial_print(" ap_mission_type="); debug_serial_print(ap_mission_type); 
               debug_serial_println();    
             #endif
@@ -1643,7 +1427,6 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
              
           break;                    
         case MAVLINK_MSG_ID_MISSION_CURRENT:         // #42 should come down regularly as part of EXTENDED_status group
-          if (!mavGood) break;   
             ap_ms_seq =  mavlink_msg_mission_current_get_seq(&R2Gmsg);  
             
             #if defined Mav_Debug_All || defined Mav_Debug_Mission
@@ -1658,7 +1441,6 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
           break; 
         case MAVLINK_MSG_ID_MISSION_COUNT :          // #44   received back after #43 Mission_Request_List sent
         #if defined Request_Missions_From_FC || defined Request_Mission_Count_From_FC
-          if (!mavGood) break;  
             ap_mission_count =  mavlink_msg_mission_count_get_count(&R2Gmsg); 
             #if defined Mav_Debug_All || defined Mav_Debug_Mission
               debug_serial_print("Mavlink from FC #44 Mission Count: ");
@@ -1674,25 +1456,14 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
         #endif
         
         case MAVLINK_MSG_ID_NAV_CONTROLLER_OUTPUT:   // #62
-          if (!mavGood) break;    
-            ap_nav_roll =  mavlink_msg_nav_controller_output_get_nav_roll(&R2Gmsg);             // Current desired roll
-            ap_nav_pitch = mavlink_msg_nav_controller_output_get_nav_pitch(&R2Gmsg);            // Current desired pitch
-            ap_nav_bearing = mavlink_msg_nav_controller_output_get_nav_bearing(&R2Gmsg);        // Current desired heading
             ap_target_bearing = mavlink_msg_nav_controller_output_get_target_bearing(&R2Gmsg);  // Bearing to current waypoint/target
             ap_wp_dist = mavlink_msg_nav_controller_output_get_wp_dist(&R2Gmsg);                // Distance to active waypoint
-            ap_alt_error = mavlink_msg_nav_controller_output_get_alt_error(&R2Gmsg);            // Current altitude error
-            ap_aspd_error = mavlink_msg_nav_controller_output_get_aspd_error(&R2Gmsg);          // Current airspeed error
             ap_xtrack_error = mavlink_msg_nav_controller_output_get_xtrack_error(&R2Gmsg);      // Current crosstrack error on x-y plane
 
             #if defined Mav_Debug_All || defined Mav_Debug_Waypoints
               debug_serial_print("Mavlink from FC #62 Nav_Controller_Output - (+Waypoint): ");
-              debug_serial_print("ap_nav_roll="); debug_serial_print(ap_nav_roll, 3);  
-              debug_serial_print(" ap_nav_pitch="); debug_serial_print(ap_nav_pitch, 3);   
-              debug_serial_print(" ap_nav_bearing="); debug_serial_print(ap_nav_bearing);   
               debug_serial_print(" ap_target_bearing="); debug_serial_print(ap_target_bearing);   
               debug_serial_print(" ap_wp_dist="); debug_serial_print(ap_wp_dist);  
-              debug_serial_print(" ap_alt_error="); debug_serial_print(ap_alt_error, 2);   
-              debug_serial_print(" ap_aspd_error="); debug_serial_print(ap_aspd_error, 2);   
               debug_serial_print(" ap_xtrack_error="); debug_serial_print(ap_xtrack_error, 2);  
               debug_serial_println();    
             #endif
@@ -1703,7 +1474,6 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
         
           break;     
         case MAVLINK_MSG_ID_RC_CHANNELS:             // #65
-          if (!mavGood) break; 
 
             ap_chcnt = mavlink_msg_rc_channels_get_chancount(&R2Gmsg);
             ap_chan_raw[0] = mavlink_msg_rc_channels_get_chan1_raw(&R2Gmsg);   
@@ -1756,12 +1526,8 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
               debug_serial_print("  rssiGood=");  debug_serial_println(rssiGood);         
             #endif             
           break;      
-        case MAVLINK_MSG_ID_REQUEST_DATA_STREAM:     // #66 - OUTGOING TO UAV
-          if (!mavGood) break;       
-          break; 
         case MAVLINK_MSG_ID_MISSION_ITEM_INT:       // #73   received back after #51 Mission_Request_Int sent
         #if defined Mav_Debug_All || defined Mav_Debug_Mission
-          if (!mavGood) break; 
           ap73_target_system =  mavlink_msg_mission_item_int_get_target_system(&R2Gmsg);   
           ap73_target_component =  mavlink_msg_mission_item_int_get_target_component(&R2Gmsg);   
           ap73_seq = mavlink_msg_mission_item_int_get_seq(&R2Gmsg);           // Waypoint ID (sequence number)
@@ -1800,7 +1566,6 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
                                
         case MAVLINK_MSG_ID_VFR_HUD:                 //  #74
         {
-          if (!mavGood) break;      
           mavlink_vfr_hud_t param;
           mavlink_msg_vfr_hud_decode(&R2Gmsg, &param);
 
@@ -1849,20 +1614,18 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
           break; 
         }
         case MAVLINK_MSG_ID_RADIO_STATUS:         // #109
-          if (!mavGood) break;
 
             ap_rssi109 = mavlink_msg_radio_status_get_rssi(&R2Gmsg);         // air signal strength
-            ap_remrssi = mavlink_msg_radio_status_get_remrssi(&R2Gmsg);      // remote signal strength
-            ap_txbuf = mavlink_msg_radio_status_get_txbuf(&R2Gmsg);          // how full the tx buffer is as a percentage
-            ap_noise = mavlink_msg_radio_status_get_noise(&R2Gmsg);          // remote background noise level
-            ap_remnoise = mavlink_msg_radio_status_get_remnoise(&R2Gmsg);    // receive errors
-            ap_rxerrors = mavlink_msg_radio_status_get_rxerrors(&R2Gmsg);    // count of error corrected packets
-            ap_fixed = mavlink_msg_radio_status_get_fixed(&R2Gmsg);
+            // ap_remrssi = mavlink_msg_radio_status_get_remrssi(&R2Gmsg);      // remote signal strength
+            // ap_txbuf = mavlink_msg_radio_status_get_txbuf(&R2Gmsg);          // how full the tx buffer is as a percentage
+            // ap_noise = mavlink_msg_radio_status_get_noise(&R2Gmsg);          // remote background noise level
+            // ap_remnoise = mavlink_msg_radio_status_get_remnoise(&R2Gmsg);    // receive errors
+            // ap_rxerrors = mavlink_msg_radio_status_get_rxerrors(&R2Gmsg);    // count of error corrected packets
+            // ap_fixed = mavlink_msg_radio_status_get_fixed(&R2Gmsg);
             rssi109 = true;  
               
             // If we get #109 then it must be a SiK fw radio, so use this record for rssi
-            rssiGood=true;            
-            ap_rssi = ap_rssi109;   //  Percent
+            rssiGood = true;            
             
             #if defined Rssi_In_Percent
               ap_rssi = ap_rssi109;          //  Percent
@@ -1890,13 +1653,8 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
 
           break;     
            
-        case MAVLINK_MSG_ID_SCALED_IMU2:       // #116   https://mavlink.io/en/messages/common.html
-          if (!mavGood) break;       
-          break;
-           
         case MAVLINK_MSG_ID_POWER_STATUS:      // #125   https://mavlink.io/en/messages/common.html
           #if defined Decode_Non_Essential_Mav
-            if (!mavGood) break;  
             ap_Vcc = mavlink_msg_power_status_get_Vcc(&R2Gmsg);         // 5V rail voltage in millivolts
             ap_Vservo = mavlink_msg_power_status_get_Vservo(&R2Gmsg);   // servo rail voltage in millivolts
             ap_flags = mavlink_msg_power_status_get_flags(&R2Gmsg);     // power supply status flags (see MAV_POWER_status enum)
@@ -1909,7 +1667,6 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
           #endif              
             break; 
          case MAVLINK_MSG_ID_BATTERY_STATUS:      // #147   https://mavlink.io/en/messages/common.html
-          if (!mavGood) break;       
           ap_battery_id = mavlink_msg_battery_status_get_id(&R2Gmsg);  
           ap_current_battery = mavlink_msg_battery_status_get_current_battery(&R2Gmsg);      // in 10*milliamperes (1 = 10 milliampere)
           ap_current_consumed = mavlink_msg_battery_status_get_current_consumed(&R2Gmsg);    // mAh
@@ -1938,17 +1695,10 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
           #endif                        
           
           break;    
-        case MAVLINK_MSG_ID_SENSOR_OFFSETS:    // #150   https://mavlink.io/en/messages/ardupilotmega.html
-          if (!mavGood) break;        
-          break; 
-        case MAVLINK_MSG_ID_MEMINFO:           // #152   https://mavlink.io/en/messages/ardupilotmega.html
-          if (!mavGood) break;        
-          break;   
         case MAVLINK_MSG_ID_RADIO:             // #166   See #109 RADIO_status
         
           break; 
         case MAVLINK_MSG_ID_RANGEFINDER:       // #173   https://mavlink.io/en/messages/ardupilotmega.html
-          if (!mavGood) break;       
           ap_range = mavlink_msg_rangefinder_get_distance(&R2Gmsg);  // distance in meters
 
           #if defined Mav_Debug_All || defined Mav_Debug_Range
@@ -1960,11 +1710,7 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
           PackSensorTable(0x5006, 0);  // 0x5006 Rangefinder
              
           break;            
-        case MAVLINK_MSG_ID_AHRS2:             // #178   https://mavlink.io/en/messages/ardupilotmega.html
-          if (!mavGood) break;       
-          break;  
         case MAVLINK_MSG_ID_BATTERY2:          // #181   https://mavlink.io/en/messages/ardupilotmega.html
-          if (!mavGood) break;
           ap_voltage_battery2 = Get_Volt_Average2(mavlink_msg_battery2_get_voltage(&R2Gmsg));        // 1000 = 1V
           ap_current_battery2 = Get_Current_Average2(mavlink_msg_battery2_get_current_battery(&R2Gmsg));     //  100 = 1A
           if(ap_voltage_battery2 > 21000) ap_cell_count2 = 6;
@@ -1993,7 +1739,6 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
           break;
           
         case MAVLINK_MSG_ID_AHRS3:             // #182   https://mavlink.io/en/messages/ardupilotmega.html
-          if (!mavGood) break;       
           break;
         case MAVLINK_MSG_ID_STATUSTEXT:        // #253      
           ap_severity = mavlink_msg_statustext_get_severity(&R2Gmsg);
@@ -2010,7 +1755,6 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
           
           break;                                      
         default:
-          if (!mavGood) break;
           #if defined Mav_Debug_All || defined Mav_Show_Unknown_Msgs
             debug_serial_print("Mavlink from FC: ");
             debug_serial_print("Unknown Message ID #");
@@ -2255,8 +1999,6 @@ void SPort_Inject_Packet() {
        
   fr_payload = 0; // Clear the payload field
     
-  if (!mavGood) return;  // Wait for good Mavlink data
-
   uint32_t sb_now = millis();
   int16_t sb_age;
   int16_t sb_subid_age;
@@ -3338,19 +3080,23 @@ void Pack_VFR_Hud_50F2(uint16_t id) {
 }
 //=================================================================================================          
 void Pack_Rssi_F101(uint16_t id) {          // data id 0xF101 RSSI tell LUA script in Taranis we are connected
+  //0xF103
+  uint32_t fr_rssi;
+
   fr_payload = 0;
   
   if (rssiGood)
     fr_rssi = ap_rssi;            // always %
   else
     fr_rssi = 254;     // We may have a connection but don't yet know how strong. Prevents spurious "Telemetry lost" announcement
+
   #ifdef RSSI_Override   // dummy rssi override for debugging
-    fr_rssi = 70;
+  fr_rssi = 70;
   #endif
 
-  if(fr_rssi < 1){    // Patch from hasi123
+  /*if(fr_rssi < 1){    // Patch from hasi123
     fr_rssi = 69;
-  }
+  }*/
 
   bit32Pack(fr_rssi ,0, 32);
 
@@ -3716,6 +3462,8 @@ uint8_t PX4FlightModeNum(uint8_t main, uint8_t sub) {
 //=================================================================================================  
 #if defined Frs_Debug_All
 void ShowPeriod(bool LF) {
+  static uint32_t now_millis = 0;
+  static uint32_t prev_millis = 0;
   debug_serial_print("Period ms=");
   now_millis=millis();
   debug_serial_print(now_millis-prev_millis);
