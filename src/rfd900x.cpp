@@ -741,12 +741,26 @@ int r900x_getparams(String filename, bool factory_reset_first) {
 // Converts the RSSI figure incomming from a MAV message ID 109
 // to a figure that represents link quality in percentage
 uint8_t r900x_rssi_percentage(uint8_t mav_rssi_109) {
-    if (mav_rssi_109 >= r9x_sensitivity + 20) {
-        return 99;
+    uint16_t res;
+    
+    if (mav_rssi_109 == 255) // MAV value that corresponsds to invalid/unknown
+    {
+        res = 0;
+    } else if (mav_rssi_109 >= r9x_sensitivity + 20) {
+        res = 99;
+    } else {
+        res = 100 * (mav_rssi_109 - r9x_sensitivity);
+        res /= 20;
     }
 
-    uint16_t res = 100 * (mav_rssi_109 - r9x_sensitivity);
-    return res / 20;
+    debug_serial_println("rssi_reported:" + String(mav_rssi_109));
+    delay(0);
+    debug_serial_println("sensitivity:" + String(r9x_sensitivity));
+    delay(0);
+    debug_serial_println("rssi_per_calc:" + String(res));
+    delay(0);
+
+    return res;
 }
 
 void r900x_setup(bool reflash) { // if true. it will attempt to reflash ( and factory defaults), if false it will go through the motions.
@@ -791,7 +805,7 @@ void r900x_setup(bool reflash) { // if true. it will attempt to reflash ( and fa
     File f = SPIFFS.open(RFD_LOC_PAR,"r");
     if (f != NULL) {
         bool as_found = false;
-        while (!as_found) {
+        while (f.available()) {
             String line = f.readStringUntil('\n');
             int res = line.indexOf("AIR_SPEED");
             if (res >= 0) {
@@ -809,9 +823,12 @@ void r900x_setup(bool reflash) { // if true. it will attempt to reflash ( and fa
                     default: r9x_sensitivity = 94; break; // Defaults to -105dBm seen on 64kpbs datarates
                 }
                 as_found = true;
+                debug_serial_println("AS found:"+String(airspeed));
+                break;
             }
         }
     }
+    debug_serial_println("Sensitivity:" +String(r9x_sensitivity));
 
     int baudrate = getWorld()->getParameters()->getUartBaudRate();
     debug_serial_println("Loading baud from FLASH: " + String(baudrate));

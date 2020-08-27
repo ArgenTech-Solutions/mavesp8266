@@ -697,7 +697,7 @@ void sport_loop() {
   static uint32_t rssi_millis = 0;
   bool rssiGood = (millis() - rs_millis) < 2100; // rssi should only be reported if has updated in the last 1.5s
 
-  if (rssiGood && (millis() - rssi_millis > 700)) {
+  if (rssiGood && (millis() - rssi_millis > 675)) {
     PackSensorTable(0xF101, 0);   // 0xF101 RSSI 
     rssi_millis = millis(); 
   }   
@@ -1453,23 +1453,25 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
           mavlink_vfr_hud_t param;
           mavlink_msg_vfr_hud_decode(&R2Gmsg, &param);
 
-          if ((param.airspeed == 0.0) ||
-              (param.groundspeed == 0.0) ||
-              ((param.heading < 0)||(param.heading > 360)) ||
-              (param.throttle > 100) ||
-              (param.alt == 0.0) ||
-              (param.climb == 0.0))
+          // if ((param.airspeed == 0.0) ||
+          //     (param.groundspeed == 0.0) ||
+          //     ((param.heading < 0)||(param.heading > 360)) ||
+          //     (param.throttle > 100) ||
+          //     (param.alt == 0.0) ||
+          //     (param.climb == 0.0))
+          // {
+          //   #if defined Mav_Debug_All || defined Mav_Debug_Hud
+          //     Serial1.print("Mavlink from FC #74 VFR_HUD: ");
+          //     Serial1.print("Airspeed= "); Serial1.print(ap_hud_air_spd_tmp, 2);                 // m/s    
+          //     Serial1.print("  Groundspeed= "); Serial1.print(ap_hud_grd_spd_tmp, 2);            // m/s
+          //     Serial1.print("  Heading= ");  Serial1.print(ap_hud_hdg_tmp);                      // deg
+          //     Serial1.print("  Throttle %= ");  Serial1.print(ap_hud_throt_tmp);                 // %
+          //     Serial1.print("  Baro alt= "); Serial1.print(ap_hud_bar_alt_tmp, 0);               // m                  
+          //     Serial1.print("  Climb rate= "); Serial1.println(ap_hud_climb_tmp);                // m/s
+          //   #endif 
+          // } 
+          // else 
           {
-            #if defined Mav_Debug_All || defined Mav_Debug_Hud
-              Serial1.print("Mavlink from FC #74 VFR_HUD: ");
-              Serial1.print("Airspeed= "); Serial1.print(ap_hud_air_spd_tmp, 2);                 // m/s    
-              Serial1.print("  Groundspeed= "); Serial1.print(ap_hud_grd_spd_tmp, 2);            // m/s
-              Serial1.print("  Heading= ");  Serial1.print(ap_hud_hdg_tmp);                      // deg
-              Serial1.print("  Throttle %= ");  Serial1.print(ap_hud_throt_tmp);                 // %
-              Serial1.print("  Baro alt= "); Serial1.print(ap_hud_bar_alt_tmp, 0);               // m                  
-              Serial1.print("  Climb rate= "); Serial1.println(ap_hud_climb_tmp);                // m/s
-            #endif 
-          } else {
             ap_hud_air_spd = param.airspeed;
             ap_hud_grd_spd = param.groundspeed;      //  in m/s
             ap_hud_hdg = param.heading;              //  in degrees

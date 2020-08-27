@@ -332,10 +332,10 @@ void setup() {
     updateServer.begin(&updateStatus); 
 
     //try at current/stock baud rate, 57600, first.
+    debug_init();
     r900x_setup(true); // probe for 900x and if a new firware update is needed , do it.  CAUTION may hang in retries if 900x modem is NOT attached
     sport_setup();
     mav_bridges_setup();
-    debug_init();
 }
 
 void client_check() { 
