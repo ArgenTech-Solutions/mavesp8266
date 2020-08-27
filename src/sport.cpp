@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "mavesp8266.h"
 #include "mavesp8266_parameters.h"
+#include "rfd900x.h"
 /*
 =====================================================================================================================
      MavToPass  (Mavlink To FrSky Passthrough) Protocol Translator
@@ -1630,7 +1631,7 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
             #if defined Rssi_In_Percent
               ap_rssi = ap_rssi109;          //  Percent
             #else
-              ap_rssi = ap_rssi109 / 2.42;   //  254 -> 100%    // Patch from hasi123        
+              ap_rssi = r900x_rssi_percentage(ap_rssi109);   // calculates link quality figure specifically for the RFD900x
             #endif
             
             #if defined Mav_Debug_All || defined Debug_Rssi || defined Mav_Debug_RC

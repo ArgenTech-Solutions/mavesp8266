@@ -18,7 +18,7 @@ HardwareSerial Serial9x(1); //  attached 900x device is on 'Serial' and instanti
 File f; // global handle use for the Xmodem upload
 XModem xmodem(&Serial, ModeXModem);
 MySerial *SmartSerial = new MySerial(&Serial9x); 
-static uint8_t r9x_sensitivity = 0;
+static uint8_t r9x_sensitivity = 94; // Defaults to -105dBm seen on 64kpbs datarates
 
 void r900x_initiate_serials(void) {
     delay(100);
@@ -738,6 +738,17 @@ int r900x_getparams(String filename, bool factory_reset_first) {
     return linecount;
 }
 
+// Converts the RSSI figure incomming from a MAV message ID 109
+// to a figure that represents link quality in percentage
+uint8_t r900x_rssi_percentage(uint8_t mav_rssi_109) {
+    if (mav_rssi_109 >= r9x_sensitivity + 20) {
+        return 99;
+    }
+
+    uint16_t res = 100 * (mav_rssi_109 - r9x_sensitivity);
+    return res / 20;
+}
+
 void r900x_setup(bool reflash) { // if true. it will attempt to reflash ( and factory defaults), if false it will go through the motions.
 
     debug_serial_println(F("r900x_setup(...)\n"));
@@ -773,27 +784,32 @@ void r900x_setup(bool reflash) { // if true. it will attempt to reflash ( and fa
       f.close();
     }
 
-    // Store sensitivity value in the RAM to calculate RSSI
+    // Store pseudo-sensitivity value in the RAM to calculate RSSI
+    // Pseudo-sensitivity is calculated based on RSSI value from MAV message #109:
+    // pRSSI = 2*sensitivity + 304
+    // Sensitivity values can be found in the RFD900x datasheet
     File f = SPIFFS.open(RFD_LOC_PAR,"r");
-    bool as_found = false;
-    while (!as_found) {
-        String line = f.readStringUntil('\n');
-        int res = line.indexOf("AIR_SPEED");
-        if (res >= 0) {
-            int airspeed = line.substring(res + 10).toInt();
-            switch (airspeed) {
-                case 12: r9x_sensitivity = 0; break;
-                case 56: r9x_sensitivity = 0; break;
-                case 64: r9x_sensitivity = 0; break;
-                case 100: r9x_sensitivity = 0; break;
-                case 125: r9x_sensitivity = 0; break;
-                case 200: r9x_sensitivity = 0; break;
-                case 224: r9x_sensitivity = 0; break;
-                case 500: r9x_sensitivity = 0; break;
-                case 750: r9x_sensitivity = 0; break;
-                default: r9x_sensitivity = 0; break;
+    if (f != NULL) {
+        bool as_found = false;
+        while (!as_found) {
+            String line = f.readStringUntil('\n');
+            int res = line.indexOf("AIR_SPEED");
+            if (res >= 0) {
+                int airspeed = line.substring(res + 10).toInt();
+                switch (airspeed) {
+                    case 12: r9x_sensitivity = 82; break; // -111dBm
+                    case 56: 
+                    case 64: 
+                    case 100: r9x_sensitivity = 94; break; // -105dBm
+                    case 125: r9x_sensitivity = 96; break; // -104dbm
+                    case 200: 
+                    case 224: 
+                    case 500: r9x_sensitivity = 116; break; // -94dBm
+                    case 750: r9x_sensitivity = 126; break; // -89dBm
+                    default: r9x_sensitivity = 94; break; // Defaults to -105dBm seen on 64kpbs datarates
+                }
+                as_found = true;
             }
-            as_found = true;
         }
     }
 
