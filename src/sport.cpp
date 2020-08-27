@@ -163,11 +163,8 @@ bool      ap_bat_paramsRead=false;
 uint8_t   app_count=0;
 
 bool      homGood = false;      
-bool      rssiGood = false;
-bool      rssi35 = false;
-bool      rssi65 = false;
-bool      rssi109 = false;
 
+uint32_t  rs_millis=0;    // last time an RSSI figure has been received
 uint32_t  sport_millis=0;  
 #ifdef Data_Streams_Enabled 
 uint32_t  rds_millis=0;
@@ -201,8 +198,6 @@ struct Loc2D {
   float     lon;
   };
   
-
-
 //=========================================== M A V L I N K =============================================    
 
 uint16_t            len;
@@ -213,9 +208,7 @@ uint16_t            len;
 uint8_t    ap_sysid;
 uint8_t    ap_compid;
 uint8_t    ap_targcomp;
-
 uint8_t    ap_targsys;     //   System ID of target system - outgoing to FC
-
 uint8_t    mvType;
 
 // Message #0  HEARTHBEAT 
@@ -224,8 +217,6 @@ uint8_t    ap_type = 0;
 uint8_t    ap_autopilot = 0;
 uint8_t    ap_base_mode = 0;
 uint32_t   ap_custom_mode = 0;
-uint8_t    ap_system_status = 0;
-uint8_t    ap_mavlink_version = 0;
 bool       px4_flight_stack = false;
 uint8_t    px4_main_mode = 0;
 uint8_t    px4_sub_mode = 0;
@@ -308,7 +299,6 @@ int16_t   ap27_zmag = 0;
 int8_t    ap27_id = 0;
 int16_t   ap27_temp = 0;             // cdegC
 
-
 // Message #29 SCALED_PRESSURE
 float      ap_press_abs;         // Absolute pressure (hectopascal)
 float      ap_press_diff;        // Differential pressure 1 (hectopascal)
@@ -328,8 +318,6 @@ uint16_t ap_gps_hdg;           // Vehicle heading (yaw angle) in degrees * 100, 
 
 // Message #35 RC_CHANNELS_RAW
 uint8_t ap_rssi;
-bool    ap_rssi_ft = true; // first rssi connection
-uint8_t ap_rssi35;
 
 // Message #39 Mission_Item
 //  Generic Mavlink Header defined above
@@ -370,9 +358,6 @@ bool      ap_rc_flag = false;    // true when rc record received
 uint8_t   ap_chcnt; 
 uint16_t  ap_chan_raw[18];       // 16 + 2 channels, [0] thru [17] 
 
-//uint16_t ap_chan16_raw;        // Used for RSSI uS 1000=0%  2000=100%
-uint8_t  ap_rssi65;              // Receive signal strength indicator, 0: 0%, 100: 100%, 255: invalid/unknown
-
 // Message #73 Mission_Item_Int
 #if defined Mav_Debug_All || defined Mav_Debug_Mission
 uint8_t   ap73_target_system;    
@@ -399,15 +384,6 @@ int16_t  ap_hud_hdg;
 uint16_t ap_hud_throt;
 float    ap_hud_bar_alt;   
 float    ap_hud_climb;        
-
-// Message #109 RADIO_status (Sik radio firmware)
-uint8_t ap_rssi109;             // local signal strength
-// uint8_t ap_remrssi;             // remote signal strength
-// uint8_t ap_txbuf;               // how full the tx buffer is as a percentage
-// uint8_t ap_noise;               // background noise level
-// uint8_t ap_remnoise;            // remote background noise level
-// uint16_t ap_rxerrors;           // receive errors
-// uint16_t ap_fixed;              // count of error corrected packets
 
 // Message  #125 POWER_status 
 uint16_t  ap_Vcc;                 // 5V rail voltage in millivolts
@@ -455,9 +431,6 @@ uint8_t    ap_cell_count2 = 0;
  bool      ap_simple=0;
  
 //=====================================  F  R  S  K  Y  ===========================================
-
-// FrSky Passthru Variables
-uint32_t  fr_payload;
 
 // 0x800 GPS
 uint8_t ms2bits;
@@ -593,16 +566,9 @@ uint16_t  fr_direction;             // Wind direction relative to yaw, deg / 3
 
 // Forward declarations
 void SPort_Init(void);
-bool Read_FC_To_RingBuffer();
 void PackSensorTable(uint16_t, uint8_t);
 void RB_To_Decode_To_SPort_and_GCS();
-void Decode_GCS_To_FC();
-void Write_To_FC(uint32_t);
-void Send_FC_Heartbeat();
-void RequestMissionList();
 void MavToRingBuffer(mavlink_message_t*);
-void Send_From_RingBuf_To_GCS();
-void checkLinkErrors(mavlink_message_t*); 
 void DecodeOneMavFrame(mavlink_message_t);
 void SPort_Blind_Inject_Packet();
 void MarkHome();
@@ -614,7 +580,6 @@ void Accum_mAh1(uint32_t);
 void Accum_mAh2(uint32_t);
 void Accum_Volts1(uint32_t); 
 void Accum_Volts2(uint32_t); 
-void ReadSPort(void);
 void SPort_Inject_Packet();
 void SPort_SendByte(uint8_t, bool);
 void SPort_SendDataFrame(uint8_t, uint16_t, uint32_t);
@@ -641,17 +606,6 @@ uint16_t prep_number(int32_t, uint8_t, uint8_t);
 int16_t Add360(int16_t, int16_t);
 float wrap_360(int16_t);
 int8_t PWM_To_63(uint16_t);
-void ServiceMavStatusLed();
-void ServiceBufStatusLed();
-void BlinkMavLed(uint32_t);
-void DisplayRemoteIP();
-bool Leap_yr(uint16_t);
-void WebServerSetup();
-void PackSensorTable(uint16_t, uint8_t);
-void Send_FC_Heartbeat();
-void RequestMissionList();
-void SPort_Blind_Inject_Packet();
-void ReadSPort(void);
 void DisplayByte(byte);
 uint8_t PX4FlightModeNum(uint8_t, uint8_t);
 
@@ -723,6 +677,7 @@ void sport_setup()  {
 
 void sport_loop() {
   static uint32_t  param_millis = 0;
+  static bool ap_rssi_ft = true; // first rssi connection
 
   if (ap_rssi > 0) {
     if (ap_rssi_ft) {  // first time we have an rc connection
@@ -739,15 +694,10 @@ void sport_loop() {
     }
   }
 
-  #ifdef RSSI_Override
-  const bool rssiOverride = true;
-  #else
-  const bool rssiOverride = false;
-  #endif
-
   static uint32_t rssi_millis = 0;
+  bool rssiGood = (millis() - rs_millis) < 2100; // rssi should only be reported if has updated in the last 1.5s
 
-  if ((rssiGood || rssiOverride) && (millis() - rssi_millis > 700)) {
+  if (rssiGood && (millis() - rssi_millis > 700)) {
     PackSensorTable(0xF101, 0);   // 0xF101 RSSI 
     rssi_millis = millis(); 
   }   
@@ -978,25 +928,6 @@ uint16_t mav_checksum;          ///< X.25 CRC
    debug_serial_println();
   
 }
-
-bool Read_FC_To_RingBuffer() {
-  //TODO
-  /*if (set.fc_io == fc_ser)  {  // Serial
-    mavlink_status_t status;
-    while(mvSerialFC.available()) { 
-      uint16_t c = mvSerialFC.read();
-      if(mavlink_parse_char(MAVLINK_COMM_0, c, &F2Rmsg, &status)) {  // Read a frame
-         #ifdef  Debug_FC_Down
-           debug_serial_println("Serial passed to RB from FC side :");
-           PrintMavBuffer(&F2Rmsg);
-        #endif              
-        MavToRingBuffer();       
-      }
-    }
-    return true;  
-  }*/
-  return false; 
-}
 //================================================================================================= 
 
 void RB_To_Decode_To_SPort_and_GCS() {
@@ -1067,9 +998,6 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
           px4_sub_mode = bit32Extract(ap_custom_mode,24, 8);
           px4_flight_stack = (ap_autopilot == MAV_AUTOPILOT_PX4);
             
-          ap_system_status = mavlink_msg_heartbeat_get_system_status(&R2Gmsg);
-          ap_mavlink_version = mavlink_msg_heartbeat_get_mavlink_version(&R2Gmsg);
-
           if ((ap_base_mode >> 7) && (!homGood)) 
             MarkHome();  // If motors armed for the first time, then mark this spot as home
 
@@ -1081,8 +1009,6 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
             debug_serial_print("  ap_autopilot="); debug_serial_print(ap_autopilot); 
             debug_serial_print("  ap_base_mode="); debug_serial_print(ap_base_mode); 
             debug_serial_print(" ap_custom_mode="); debug_serial_print(ap_custom_mode);
-            debug_serial_print("  ap_system_status="); debug_serial_print(ap_system_status); 
-            debug_serial_print("  ap_mavlink_version="); debug_serial_print(ap_mavlink_version);   
 
             if (px4_flight_stack) {         
               debug_serial_print(" px4_main_mode="); debug_serial_print(px4_main_mode); 
@@ -1378,30 +1304,6 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
           #endif  
                 
           break;  
-        case MAVLINK_MSG_ID_RC_CHANNELS_RAW:         // #35
-          ap_rssi35 = mavlink_msg_rc_channels_raw_get_rssi(&R2Gmsg);
-          rssi35 = true;  
-               
-          if ((!rssi65) && (!rssi109)) { // If no #65 and no #109 received, then use #35
-            rssiGood=true;   
-            #if defined Rssi_In_Percent
-              ap_rssi = ap_rssi35;          //  Percent
-            #else           
-              ap_rssi = ap_rssi35 / 2.54;  // 254 -> 100%    
-            #endif               
-            #if defined Mav_Debug_All || defined Debug_Rssi || defined Mav_Debug_RC
-              #ifndef RSSI_Override
-                debug_serial_print("Auto RSSI_Source===>  ");
-              #endif
-            #endif     
-          }
-
-          #if defined Mav_Debug_All || defined Debug_Rssi || defined Mav_Debug_RC
-            debug_serial_print("Mavlink from FC #35 RC_Channels_Raw: ");                        
-            debug_serial_print("  ap_rssi35=");  debug_serial_print(ap_rssi35);   // 0xff -> 100%
-            debug_serial_print("  rssiGood=");  debug_serial_println(rssiGood); 
-          #endif                    
-          break;  
         case MAVLINK_MSG_ID_SERVO_OUTPUT_RAW :          // #36
           
           #if defined PlusVersion
@@ -1495,23 +1397,6 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
             ap_chan_raw[15] = mavlink_msg_rc_channels_get_chan16_raw(&R2Gmsg);
             ap_chan_raw[16] = mavlink_msg_rc_channels_get_chan17_raw(&R2Gmsg);   
             ap_chan_raw[17] = mavlink_msg_rc_channels_get_chan18_raw(&R2Gmsg);
-            ap_rssi65 = mavlink_msg_rc_channels_get_rssi(&R2Gmsg);   // Receive RSSI 0: 0%, 254: 100%, 255: invalid/unknown     
-   
-            rssi65 = true;  
-             
-            if (!rssi109) { // If no #109 received, then use #65
-              rssiGood=true; 
-              #if defined Rssi_In_Percent
-                ap_rssi = ap_rssi65;          //  Percent
-              #else           
-                ap_rssi = ap_rssi65 / 2.54;  // 254 -> 100%
-              #endif                
-              #if defined Mav_Debug_All || defined Debug_Rssi || defined Mav_Debug_RC
-                #ifndef RSSI_Override
-                  debug_serial_print("Auto RSSI_Source===>  ");
-                #endif
-              #endif     
-              }
              
             #if defined Mav_Debug_All || defined Debug_Rssi || defined Mav_Debug_RC
               debug_serial_print("Mavlink from FC #65 RC_Channels: ");
@@ -1523,8 +1408,6 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
                 debug_serial_print("=");  
                 debug_serial_print(ap_chan_raw[i]);   
               }                         
-              debug_serial_print("  ap_rssi65=");  debug_serial_print(ap_rssi65); 
-              debug_serial_print("  rssiGood=");  debug_serial_println(rssiGood);         
             #endif             
           break;      
         case MAVLINK_MSG_ID_MISSION_ITEM_INT:       // #73   received back after #51 Mission_Request_Int sent
@@ -1615,18 +1498,12 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
           break; 
         }
         case MAVLINK_MSG_ID_RADIO_STATUS:         // #109
-
-            ap_rssi109 = mavlink_msg_radio_status_get_rssi(&R2Gmsg);         // air signal strength
-            // ap_remrssi = mavlink_msg_radio_status_get_remrssi(&R2Gmsg);      // remote signal strength
-            // ap_txbuf = mavlink_msg_radio_status_get_txbuf(&R2Gmsg);          // how full the tx buffer is as a percentage
-            // ap_noise = mavlink_msg_radio_status_get_noise(&R2Gmsg);          // remote background noise level
-            // ap_remnoise = mavlink_msg_radio_status_get_remnoise(&R2Gmsg);    // receive errors
-            // ap_rxerrors = mavlink_msg_radio_status_get_rxerrors(&R2Gmsg);    // count of error corrected packets
-            // ap_fixed = mavlink_msg_radio_status_get_fixed(&R2Gmsg);
-            rssi109 = true;  
+        {
+            uint8_t ap_rssi109 = mavlink_msg_radio_status_get_rssi(&R2Gmsg);         // air signal strength
+            if (!ap_rssi109) return; // this means the internal RFD900x is purely responding to heartbeats, but not linked to anything
               
             // If we get #109 then it must be a SiK fw radio, so use this record for rssi
-            rssiGood = true;            
+            rs_millis = millis();  
             
             #if defined Rssi_In_Percent
               ap_rssi = ap_rssi109;          //  Percent
@@ -1649,11 +1526,10 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
               debug_serial_print("  remnoise="); debug_serial_print(ap_remnoise);
               debug_serial_print("  rxerrors="); debug_serial_print(ap_rxerrors);
               debug_serial_print("  fixed="); debug_serial_print(ap_fixed);  
-              debug_serial_print("  rssiGood=");  debug_serial_println(rssiGood);                                
             #endif 
 
           break;     
-           
+        }
         case MAVLINK_MSG_ID_POWER_STATUS:      // #125   https://mavlink.io/en/messages/common.html
           #if defined Decode_Non_Essential_Mav
             ap_Vcc = mavlink_msg_power_status_get_Vcc(&R2Gmsg);         // 5V rail voltage in millivolts
@@ -1784,43 +1660,6 @@ void MarkHome()  {
     debug_serial_print(" hom.hdg="); debug_serial_println(hom.hdg);                   
  #endif  
 }
-//================================================================================================= 
-/*void Send_FC_Heartbeat() {
-  
-  apo_sysid = 20;                                // ID 20 for this aircraft
-  apo_compid = 1;                                //  autopilot1
-
-  apo_type = MAV_TYPE_GCS;                       // 6 Pretend to be a GCS
-  apo_autopilot = MAV_AUTOPILOT_ARDUPILOTMEGA;   // 3 AP Mega
-  apo_base_mode = 0;
-  apo_system_status = MAV_STATE_ACTIVE;         // 4
-   
-  mavlink_msg_heartbeat_pack(apo_sysid, apo_compid, &G2Fmsg, apo_type, apo_autopilot, apo_base_mode, apo_system_status, 0); 
-  Write_To_FC(0); 
-}
-//================================================================================================= 
- void Param_Request_Read(int16_t param_index) {
-  ap_sysid = 20;                        // ID 20 for this aircraft
-  ap_compid = 1;                        //  autopilot1
-
-  mavlink_msg_param_request_read_pack(ap_sysid, ap_compid, &G2Fmsg,
-                   ap_targsys, ap_targcomp, ap_param_id, param_index);
-                
-  Write_To_FC(20);             
- }
-
-//================================================================================================= 
- void Request_Param_List() {
-
-  ap_sysid = 20;                        // ID 20 for this aircraft
-  ap_compid = 1;                        //  autopilot1
-  
-  mavlink_msg_param_request_list_pack(ap_sysid,  ap_compid, &G2Fmsg,
-                    ap_targsys,  ap_targcomp);
-              
-  Write_To_FC(21);
-                    
- }*/
 //================================================================================================= 
 #ifdef Request_Missions_From_FC
 void RequestMission(uint16_t ms_seq) {    //  #40
@@ -1953,31 +1792,7 @@ void SPort_Init(void)  {
 
   frSerial.begin(frBaud, SWSERIAL_8N1, frRx, frTx, frInvert);
   frSerial.enableIntTx(true);  
-
 } 
-//=================================================================================================  
-
-void ReadSPort(void) {
-  uint8_t prevByt=0;
-  uint8_t Byt = 0;
-
-  while ( frSerial.available())   {  
-    Byt =  frSerial.read();
-    #if defined Debug_Air_Mode || defined Debug_Relay_Mode
-      DisplayByte(Byt);
-    #endif
-
-    if ((prevByt == 0x7E) && (Byt == 0x1B)) { 
-      #if defined Debug_Air_Mode || defined Debug_Relay_Mode
-        debug_serial_println("S/S "); 
-      #endif
-    SPort_Inject_Packet(); 
-
-    }     
-  prevByt=Byt;
-  }
-  // and back to main loop
-}  
 
 //=================================================================================================  
 
@@ -1998,7 +1813,7 @@ void SPort_Inject_Packet() {
     ShowPeriod(0);   
   #endif  
        
-  fr_payload = 0; // Clear the payload field
+  uint32_t fr_payload = 0; // Clear the payload field
     
   uint32_t sb_now = millis();
   int16_t sb_age;
@@ -2303,9 +2118,9 @@ void SPort_SendDataFrame(uint8_t Instance, uint16_t Id, uint32_t value) {
 }
 //=================================================================================================  
 // Mask then AND the shifted bits, then OR them to the payload
-  void bit32Pack(uint32_t dword ,uint8_t displ, uint8_t lth) {   
+  void bit32Pack(uint32_t dword ,uint8_t displ, uint8_t lth, uint32_t * fr_payload) {   
   uint32_t dw_and_mask =  (dword<<displ) & (createMask(displ, displ+lth-1)); 
-  fr_payload |= dw_and_mask; 
+  *fr_payload |= dw_and_mask; 
 }
 //=================================================================================================  
   uint32_t bit32Unpack(uint32_t dword,uint8_t displ, uint8_t lth) {
@@ -2335,9 +2150,9 @@ void PackLat800(uint16_t id) {
       ms2bits = 1;
     else ms2bits = 0;
   }
-  fr_payload = 0;
-  bit32Pack(fr_lat, 0, 30);
-  bit32Pack(ms2bits, 30, 2);
+  uint32_t fr_payload = 0;
+  bit32Pack(fr_lat, 0, 30, &fr_payload);
+  bit32Pack(ms2bits, 30, 2, &fr_payload);
           
   #if defined Frs_Debug_All || defined Frs_Debug_LatLon
     ShowPeriod(0); 
@@ -2376,9 +2191,9 @@ void PackLon800(uint16_t id) {
       ms2bits = 2;
     }
   }
-  fr_payload = 0;
-  bit32Pack(fr_lon, 0, 30);
-  bit32Pack(ms2bits, 30, 2);
+  uint32_t fr_payload = 0;
+  bit32Pack(fr_lon, 0, 30, &fr_payload);
+  bit32Pack(ms2bits, 30, 2, &fr_payload);
           
   #if defined Frs_Debug_All || defined Frs_Debug_LatLon
     ShowPeriod(0); 
@@ -2445,11 +2260,11 @@ void PackMultipleTextChunks_5000(uint16_t id) {
     fr_chunk[2] = fr_text[fr_chunk_pntr+2];
     fr_chunk[3] = fr_text[fr_chunk_pntr+3];
     
-    fr_payload = 0;
-    bit32Pack(fr_chunk[0], 24, 7);
-    bit32Pack(fr_chunk[1], 16, 7);
-    bit32Pack(fr_chunk[2], 8, 7);    
-    bit32Pack(fr_chunk[3], 0, 7);  
+    uint32_t fr_payload = 0;
+    bit32Pack(fr_chunk[0], 24, 7, &fr_payload);
+    bit32Pack(fr_chunk[1], 16, 7, &fr_payload);
+    bit32Pack(fr_chunk[2], 8, 7, &fr_payload);
+    bit32Pack(fr_chunk[3], 0, 7, &fr_payload);
     
     #if defined Frs_Debug_All || defined Frs_Debug_StatusText
       ShowPeriod(0); 
@@ -2467,10 +2282,10 @@ void PackMultipleTextChunks_5000(uint16_t id) {
 
     if (fr_chunk_pntr+4 > (fr_txtlth)) {
 
-      bit32Pack((fr_severity & 0x1), 7, 1);            // ls bit of severity
-      bit32Pack(((fr_severity & 0x2) >> 1), 15, 1);    // mid bit of severity
-      bit32Pack(((fr_severity & 0x4) >> 2) , 23, 1);   // ms bit of severity                
-      bit32Pack(0, 31, 1);     // filler
+      bit32Pack((fr_severity & 0x1), 7, 1, &fr_payload);            // ls bit of severity
+      bit32Pack(((fr_severity & 0x2) >> 1), 15, 1, &fr_payload);    // mid bit of severity
+      bit32Pack(((fr_severity & 0x4) >> 2) , 23, 1, &fr_payload);   // ms bit of severity                
+      bit32Pack(0, 31, 1, &fr_payload);     // filler
       
       #if defined Frs_Debug_All || defined Frs_Debug_StatusText
         ShowPeriod(0); 
@@ -2521,7 +2336,7 @@ void DisplayPayload(uint32_t pl)  {
 //=================================================================================================  
 void Pack_AP_status_5001(uint16_t id) {
   if (ap_type == 6) return;      // If GCS heartbeat ignore it  -  yaapu  - ejs also handled at #0 read
-  fr_payload = 0;
+  uint32_t fr_payload = 0;
  // fr_simple = ap_simple;         // Derived from "ALR SIMPLE mode on/off" text messages
   fr_simple = 0;  // stops repeated 'simple mode enabled' and flight mode messages
   fr_armed = ap_base_mode >> 7;  
@@ -2535,14 +2350,14 @@ void Pack_AP_status_5001(uint16_t id) {
   fr_imu_temp = ap26_temp;
     
   
-  bit32Pack(fr_flight_mode, 0, 5);      // Flight mode   0-32 - 5 bits
-  bit32Pack(fr_simple ,5, 2);           // Simple/super simple mode flags
-  bit32Pack(fr_land_complete ,7, 1);    // Landed flag
-  bit32Pack(fr_armed ,8, 1);            // Armed
-  bit32Pack(fr_bat_fs ,9, 1);           // Battery failsafe flag
-  bit32Pack(fr_ekf_fs ,10, 2);          // EKF failsafe flag
-  bit32Pack(px4_flight_stack ,12, 1);   // px4_flight_stack flag
-  bit32Pack(fr_imu_temp, 26, 6);        // imu temperature in cdegC
+  bit32Pack(fr_flight_mode, 0, 5, &fr_payload);      // Flight mode   0-32 - 5 bits
+  bit32Pack(fr_simple ,5, 2, &fr_payload);           // Simple/super simple mode flags
+  bit32Pack(fr_land_complete ,7, 1, &fr_payload);    // Landed flag
+  bit32Pack(fr_armed ,8, 1, &fr_payload);            // Armed
+  bit32Pack(fr_bat_fs ,9, 1, &fr_payload);           // Battery failsafe flag
+  bit32Pack(fr_ekf_fs ,10, 2, &fr_payload);          // EKF failsafe flag
+  bit32Pack(px4_flight_stack ,12, 1, &fr_payload);   // px4_flight_stack flag
+  bit32Pack(fr_imu_temp, 26, 6, &fr_payload);        // imu temperature in cdegC
 
   #if defined Frs_Debug_All || defined Frs_Debug_APStatus
     ShowPeriod(0); 
@@ -2567,13 +2382,13 @@ void Pack_AP_status_5001(uint16_t id) {
 }
 //=================================================================================================  
 void Pack_GPS_status_5002(uint16_t id) {
-  fr_payload = 0;
+  uint32_t fr_payload = 0;
   if (ap_sat_visible > 15)
     fr_numsats = 15;
   else
     fr_numsats = ap_sat_visible;
   
-  bit32Pack(fr_numsats ,0, 4); 
+  bit32Pack(fr_numsats ,0, 4, &fr_payload); 
           
   fr_gps_status = ap_fixtype < 3 ? ap_fixtype : 3;                   //  0 - 3
   fr_gps_adv_status = ap_fixtype > 3 ? ap_fixtype - 3 : 0;           //  4 - 8 -> 0 - 3   
@@ -2581,8 +2396,8 @@ void Pack_GPS_status_5002(uint16_t id) {
   fr_amsl = ap_amsl24 / 100;  // dm
   fr_hdop = ap_eph /10;
           
-  bit32Pack(fr_gps_status ,4, 2);       // part a, 3 bits
-  bit32Pack(fr_gps_adv_status ,14, 2);  // part b, 3 bits
+  bit32Pack(fr_gps_status ,4, 2, &fr_payload);       // part a, 3 bits
+  bit32Pack(fr_gps_adv_status ,14, 2, &fr_payload);  // part b, 3 bits
           
   #if defined Frs_Debug_All || defined Frs_Debug_GPS_status
     ShowPeriod(0); 
@@ -2605,9 +2420,9 @@ void Pack_GPS_status_5002(uint16_t id) {
     debug_serial_println(); 
   #endif     
               
-  bit32Pack(fr_hdop ,6, 8);
-  bit32Pack(fr_amsl ,22, 9);
-  bit32Pack(0, 31,0);  // 1=negative 
+  bit32Pack(fr_hdop ,6, 8, &fr_payload);
+  bit32Pack(fr_amsl ,22, 9, &fr_payload);
+  bit32Pack(0, 31,0, &fr_payload);  // 1=negative 
 
   sr.id = id;
   sr.subid = 0;
@@ -2616,7 +2431,7 @@ void Pack_GPS_status_5002(uint16_t id) {
 }
 //=================================================================================================  
 void Pack_Bat1_5003(uint16_t id) {   //  Into sensor table from #1 SYS_status only
-  fr_payload = 0;
+  uint32_t fr_payload = 0;
   fr_bat1_volts = ap_voltage_battery1 / 100;         // Were mV, now dV  - V * 10
   fr_bat1_amps = ap_current_battery1 ;               // Remain       dA  - A * 10   
   
@@ -2634,10 +2449,10 @@ void Pack_Bat1_5003(uint16_t id) {   //  Into sensor table from #1 SYS_status on
     debug_serial_println();               
   #endif
           
-  bit32Pack(fr_bat1_volts ,0, 9);
+  bit32Pack(fr_bat1_volts ,0, 9, &fr_payload);
   fr_bat1_amps = prep_number(roundf(fr_bat1_amps * 0.1F),2,1);          
-  bit32Pack(fr_bat1_amps,9, 8);
-  bit32Pack(fr_bat1_mAh,17, 15);
+  bit32Pack(fr_bat1_amps,9, 8, &fr_payload);
+  bit32Pack(fr_bat1_mAh,17, 15, &fr_payload);
 
   sr.id = id;
   sr.subid = 0;
@@ -2647,7 +2462,7 @@ void Pack_Bat1_5003(uint16_t id) {   //  Into sensor table from #1 SYS_status on
 }
 //=================================================================================================  
 void Pack_Home_5004(uint16_t id) {
-    fr_payload = 0;
+    uint32_t fr_payload = 0;
     
     lon1=hom.lon/180*PI;  // degrees to radians
     lat1=hom.lat/180*PI;
@@ -2690,14 +2505,14 @@ void Pack_Home_5004(uint16_t id) {
     debug_serial_println();      
    #endif
    fr_home_dist = prep_number(roundf(fr_home_dist), 3, 2);
-   bit32Pack(fr_home_dist ,0, 12);
+   bit32Pack(fr_home_dist ,0, 12, &fr_payload);
    fr_home_alt = prep_number(roundf(fr_home_alt), 3, 2);
-   bit32Pack(fr_home_alt ,12, 12);
+   bit32Pack(fr_home_alt ,12, 12, &fr_payload);
    if (fr_home_alt < 0)
-     bit32Pack(1,24, 1);
+     bit32Pack(1,24, 1, &fr_payload);
    else  
-     bit32Pack(0,24, 1);
-   bit32Pack(fr_home_arrow,25, 7);
+     bit32Pack(0,24, 1, &fr_payload);
+   bit32Pack(fr_home_arrow,25, 7, &fr_payload);
 
    sr.id = id;
    sr.subid = 0;
@@ -2708,7 +2523,7 @@ void Pack_Home_5004(uint16_t id) {
 
 //=================================================================================================  
 void Pack_VelYaw_5005(uint16_t id) {
-  fr_payload = 0;
+  uint32_t fr_payload = 0;
   
   fr_vy = ap_hud_climb * 10;   // from #74   m/s to dm/s;
   fr_vx = ap_hud_grd_spd * 10;  // from #74  m/s to dm/s
@@ -2725,16 +2540,16 @@ void Pack_VelYaw_5005(uint16_t id) {
      
   #endif
   if (fr_vy<0)
-    bit32Pack(1, 8, 1);
+    bit32Pack(1, 8, 1, &fr_payload);
   else
-    bit32Pack(0, 8, 1);
+    bit32Pack(0, 8, 1, &fr_payload);
   fr_vy = prep_number(roundf(fr_vy), 2, 1);  // Vertical velocity
-  bit32Pack(fr_vy, 0, 8);   
+  bit32Pack(fr_vy, 0, 8, &fr_payload);   
 
   fr_vx = prep_number(roundf(fr_vx), 2, 1);  // Horizontal velocity
-  bit32Pack(fr_vx, 9, 8);    
+  bit32Pack(fr_vx, 9, 8, &fr_payload);    
   fr_yaw = fr_yaw * 0.5f;                   // Unit = 0.2 deg
-  bit32Pack(fr_yaw ,17, 11);  
+  bit32Pack(fr_yaw ,17, 11, &fr_payload);  
 
  #if defined Frs_Debug_All || defined Frs_Debug_YelYaw
    debug_serial_print(" After prep:"); 
@@ -2754,14 +2569,14 @@ void Pack_VelYaw_5005(uint16_t id) {
 }
 //=================================================================================================   
 void Pack_Atti_5006(uint16_t id) {
-  fr_payload = 0;
+  uint32_t fr_payload = 0;
   
   fr_roll = (ap_roll * 5) + 900;             //  -- fr_roll units = [0,1800] ==> [-180,180]
   fr_pitch = (ap_pitch * 5) + 450;           //  -- fr_pitch units = [0,900] ==> [-90,90]
   fr_range = roundf(ap_range*100);   
-  bit32Pack(fr_roll, 0, 11);
-  bit32Pack(fr_pitch, 11, 10); 
-  bit32Pack(prep_number(fr_range,3,1), 21, 11);
+  bit32Pack(fr_roll, 0, 11, &fr_payload);
+  bit32Pack(fr_pitch, 11, 10, &fr_payload); 
+  bit32Pack(prep_number(fr_range,3,1), 21, 11, &fr_payload);
   #if defined Frs_Debug_All || defined Frs_Debug_Attitude
     ShowPeriod(0); 
     debug_serial_print("FrSky in Attitude 0x5006: ");         
@@ -2780,7 +2595,7 @@ void Pack_Atti_5006(uint16_t id) {
 //=================================================================================================  
 void Pack_Parameters_5007(uint16_t id) {
 
-  
+  uint32_t fr_payload = 0;
   app_count++;
     
   switch(app_count) {
@@ -2788,9 +2603,8 @@ void Pack_Parameters_5007(uint16_t id) {
       fr_param_id = 1;
       fr_frame_type = ap_type;
       
-      fr_payload = 0;
-      bit32Pack(fr_frame_type, 0, 24);
-      bit32Pack(fr_param_id, 24, 4);
+      bit32Pack(fr_frame_type, 0, 24, &fr_payload);
+      bit32Pack(fr_param_id, 24, 4, &fr_payload);
 
       #if defined Frs_Debug_All || defined Frs_Debug_Params
         ShowPeriod(0);  
@@ -2816,9 +2630,8 @@ void Pack_Parameters_5007(uint16_t id) {
         fr_bat1_capacity = ap_bat1_capacity;
       #endif 
 
-      fr_payload = 0;
-      bit32Pack(fr_bat1_capacity, 0, 24);
-      bit32Pack(fr_param_id, 24, 4);
+      bit32Pack(fr_bat1_capacity, 0, 24, &fr_payload);
+      bit32Pack(fr_param_id, 24, 4, &fr_payload);
 
       #if defined Frs_Debug_All || defined Frs_Debug_Params || defined Debug_Batteries
         ShowPeriod(0);       
@@ -2844,9 +2657,8 @@ void Pack_Parameters_5007(uint16_t id) {
         fr_bat2_capacity = ap_bat2_capacity;
       #endif  
 
-      fr_payload = 0;
-      bit32Pack(fr_bat2_capacity, 0, 24);
-      bit32Pack(fr_param_id, 24, 4);
+      bit32Pack(fr_bat2_capacity, 0, 24, &fr_payload);
+      bit32Pack(fr_param_id, 24, 4, &fr_payload);
       
       #if defined Frs_Debug_All || defined Frs_Debug_Params || defined Debug_Batteries
         ShowPeriod(0);  
@@ -2867,9 +2679,8 @@ void Pack_Parameters_5007(uint16_t id) {
       fr_param_id = 6;
       fr_mission_count = ap_mission_count;
 
-      fr_payload = 0;
-      bit32Pack(fr_mission_count, 0, 24);
-      bit32Pack(fr_param_id, 24, 4);
+      bit32Pack(fr_mission_count, 0, 24, &fr_payload);
+      bit32Pack(fr_param_id, 24, 4, &fr_payload);
 
       sr.id = id;
       sr.subid = 6;
@@ -2889,7 +2700,7 @@ void Pack_Parameters_5007(uint16_t id) {
 }
 //=================================================================================================  
 void Pack_Bat2_5008(uint16_t id) {
-   fr_payload = 0;
+   uint32_t fr_payload = 0;
    
    fr_bat2_volts = ap_voltage_battery2 / 100;         // Were mV, now dV  - V * 10
    fr_bat2_amps = ap_current_battery2 ;               // Remain       dA  - A * 10   
@@ -2908,10 +2719,10 @@ void Pack_Bat2_5008(uint16_t id) {
     debug_serial_println();                  
   #endif        
           
-  bit32Pack(fr_bat2_volts ,0, 9);
+  bit32Pack(fr_bat2_volts ,0, 9, &fr_payload);
   fr_bat2_amps = prep_number(roundf(fr_bat2_amps * 0.1F),2,1);          
-  bit32Pack(fr_bat2_amps,9, 8);
-  bit32Pack(fr_bat2_mAh,17, 15);      
+  bit32Pack(fr_bat2_amps,9, 8, &fr_payload);
+  bit32Pack(fr_bat2_mAh,17, 15, &fr_payload);      
 
   sr.id = id;
   sr.subid = 1;
@@ -2923,7 +2734,7 @@ void Pack_Bat2_5008(uint16_t id) {
 //=================================================================================================  
 
 void Pack_WayPoint_5009(uint16_t id) {
-  fr_payload = 0;
+  uint32_t fr_payload = 0;
   
   fr_ms_seq = ap_ms_seq;                                      // Current WP seq number, wp[0] = wp1, from regular #42
   
@@ -2962,15 +2773,15 @@ void Pack_WayPoint_5009(uint16_t id) {
     debug_serial_println();      
   #endif
 
-  bit32Pack(fr_ms_seq, 0, 10);    //  WP number
+  bit32Pack(fr_ms_seq, 0, 10, &fr_payload);    //  WP number
 
   fr_ms_dist = prep_number(roundf(fr_ms_dist), 3, 2);       //  number, digits, power
-  bit32Pack(fr_ms_dist, 10, 12);    
+  bit32Pack(fr_ms_dist, 10, 12, &fr_payload);    
 
   fr_ms_xtrack = prep_number(roundf(fr_ms_xtrack), 1, 1);  
-  bit32Pack(fr_ms_xtrack, 22, 6); 
+  bit32Pack(fr_ms_xtrack, 22, 6, &fr_payload); 
 
-  bit32Pack(fr_ms_offset, 29, 3);  
+  bit32Pack(fr_ms_offset, 29, 3, &fr_payload);  
 
   sr.id = id;
   sr.subid = 1;
@@ -2982,7 +2793,7 @@ void Pack_WayPoint_5009(uint16_t id) {
 //=================================================================================================  
 void Pack_Servo_Raw_50F1(uint16_t id) {
 uint8_t sv_chcnt = 8;
-  fr_payload = 0;
+  uint32_t fr_payload = 0;
   
   if (sv_count+4 > sv_chcnt) { // 4 channels at a time
     sv_count = 0;
@@ -2996,27 +2807,27 @@ uint8_t sv_chcnt = 8;
   fr_sv[3] = PWM_To_63(ap_chan_raw[sv_count+2]); 
   fr_sv[4] = PWM_To_63(ap_chan_raw[sv_count+3]); 
 
-  bit32Pack(chunk, 0, 4);                // chunk number, 0 = chans 1-4, 1=chans 5-8, 2 = chans 9-12, 3 = chans 13 -16 .....
-  bit32Pack(Abs(fr_sv[1]) ,4, 6);        // fragment 1 
+  bit32Pack(chunk, 0, 4, &fr_payload);                // chunk number, 0 = chans 1-4, 1=chans 5-8, 2 = chans 9-12, 3 = chans 13 -16 .....
+  bit32Pack(Abs(fr_sv[1]) ,4, 6, &fr_payload);        // fragment 1 
   if (fr_sv[1] < 0)
-    bit32Pack(1, 10, 1);                 // neg
+    bit32Pack(1, 10, 1, &fr_payload);                 // neg
   else 
-    bit32Pack(0, 10, 1);                 // pos          
-  bit32Pack(Abs(fr_sv[2]), 11, 6);      // fragment 2 
+    bit32Pack(0, 10, 1, &fr_payload);                 // pos          
+  bit32Pack(Abs(fr_sv[2]), 11, 6, &fr_payload);      // fragment 2 
   if (fr_sv[2] < 0) 
-    bit32Pack(1, 17, 1);                 // neg
+    bit32Pack(1, 17, 1, &fr_payload);                 // neg
   else 
-    bit32Pack(0, 17, 1);                 // pos   
-  bit32Pack(Abs(fr_sv[3]), 18, 6);       // fragment 3
+    bit32Pack(0, 17, 1, &fr_payload);                 // pos   
+  bit32Pack(Abs(fr_sv[3]), 18, 6, &fr_payload);       // fragment 3
   if (fr_sv[3] < 0)
-    bit32Pack(1, 24, 1);                 // neg
+    bit32Pack(1, 24, 1, &fr_payload);                 // neg
   else 
-    bit32Pack(0, 24, 1);                 // pos      
-  bit32Pack(Abs(fr_sv[4]), 25, 6);       // fragment 4 
+    bit32Pack(0, 24, 1, &fr_payload);                 // pos      
+  bit32Pack(Abs(fr_sv[4]), 25, 6, &fr_payload);       // fragment 4 
   if (fr_sv[4] < 0)
-    bit32Pack(1, 31, 1);                 // neg
+    bit32Pack(1, 31, 1, &fr_payload);                 // neg
   else 
-    bit32Pack(0, 31, 1);                 // pos  
+    bit32Pack(0, 31, 1, &fr_payload);                 // pos  
         
   uint8_t sv_num = sv_count % 4;
 
@@ -3044,7 +2855,7 @@ uint8_t sv_chcnt = 8;
 }
 //=================================================================================================  
 void Pack_VFR_Hud_50F2(uint16_t id) {
-  fr_payload = 0;
+  uint32_t fr_payload = 0;
   
   fr_air_spd = ap_hud_air_spd * 10;      // from #74  m/s to dm/s
   fr_throt = ap_hud_throt;               // 0 - 100%
@@ -3062,16 +2873,16 @@ void Pack_VFR_Hud_50F2(uint16_t id) {
   #endif
   
   fr_air_spd = prep_number(roundf(fr_air_spd), 2, 1);  
-  bit32Pack(fr_air_spd, 0, 8);    
+  bit32Pack(fr_air_spd, 0, 8, &fr_payload);    
 
-  bit32Pack(fr_throt, 8, 7);
+  bit32Pack(fr_throt, 8, 7, &fr_payload);
 
   fr_bar_alt =  prep_number(roundf(fr_bar_alt), 3, 2);
-  bit32Pack(fr_bar_alt, 15, 12);
+  bit32Pack(fr_bar_alt, 15, 12, &fr_payload);
   if (fr_bar_alt < 0)
-    bit32Pack(1, 27, 1);  
+    bit32Pack(1, 27, 1, &fr_payload);  
   else
-   bit32Pack(0, 27, 1); 
+   bit32Pack(0, 27, 1, &fr_payload); 
     
   sr.id = id;   
   sr.subid = 1;
@@ -3081,25 +2892,9 @@ void Pack_VFR_Hud_50F2(uint16_t id) {
 }
 //=================================================================================================          
 void Pack_Rssi_F101(uint16_t id) {          // data id 0xF101 RSSI tell LUA script in Taranis we are connected
-  //0xF103
-  uint32_t fr_rssi;
 
-  fr_payload = 0;
-  
-  if (rssiGood)
-    fr_rssi = ap_rssi;            // always %
-  else
-    fr_rssi = 254;     // We may have a connection but don't yet know how strong. Prevents spurious "Telemetry lost" announcement
-
-  #ifdef RSSI_Override   // dummy rssi override for debugging
-  fr_rssi = 70;
-  #endif
-
-  /*if(fr_rssi < 1){    // Patch from hasi123
-    fr_rssi = 69;
-  }*/
-
-  bit32Pack(fr_rssi ,0, 32);
+  uint32_t fr_payload = 0;
+  bit32Pack((uint32_t)ap_rssi ,0, 32, &fr_payload);
 
   #if defined Frs_Debug_All || defined Debug_Rssi
     ShowPeriod(0);    

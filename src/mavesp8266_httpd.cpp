@@ -65,18 +65,6 @@ const char PROGMEM kNOTFOUND[]   = "<!DOCTYPE html><html><head><title>TXMOD</tit
 const char PROGMEM kBADARG[]     = "BAD ARGS";
 const char PROGMEM kAPPJSON[]    = "application/json";
 
-/*const char PROGMEM embbeded_index[] = R"V0G0N(
-<!DOCTYPE html><html><head><title>TXMOD</title><meta name='viewport' content='initial-scale=1.0'><meta charset='utf-8'>
-<style>body{max-width:800px;width:90%;background-color:#f1f1f1;font-family:Verdana;margin:20px auto}h1 {font-weight:normal}h2{font-size:20px;font-weight:normal;margin:0 0 15px 0;width:100%}
-p {font-size:12px;font-weight:normal;padding:0 0 15px 0;margin:0}p:last-child{padding-bottom:0}.b {margin:0 0 15px 0;background-color: #ffffff;padding:15px}.hd{margin: 10px 0}.b a, .b a:hover, .b a:active, .b a:visited, .btn {background-color:transparent;font-size: 10px;color:#3C9BED;padding:5px 7px;margin:0 3px 3px 0;border: 1px solid #3C9BED;border-radius:5px;text-decoration:none;display:inline-block;}.b a:hover, .btn:hover {background-color:#D7EDFF;}
-.ct {display:inline-block;width:auto}.c:after,.c:before,.r:after,.r:before{content:'';display:table;clear:both}.cl{float:left;width:100%}@media (min-width:900px){.h{width:392px} .l{margin-right:16px}}.c{padding:0.01em 16px}
-.bt{height:90px;color:#fff}.rd{background-color:#f44242}.gr{background-color:#41f47f}.bt img{float:left;padding:0 20 0 10px;height:85px;margin:0 10px 0 0}.bt h1{margin:5px 0}.bt a{text-align:right;clear:both;color:#fff;border:1px solid #fff;float:right}.bt a:hover, .bt a:active, .bt a:visited{background-color:rgba(255,255,255,0.2);border:1px solid #fff;color:#fff}</style>
-</head><body><div class='hd'><h1>TXMOD</h1></div><div class='cl h ct l'><div class='b'><h2>Device Info</h2>$device_info$</div><div class='b'><h2>Network Status</h2>$net_info$<a href='/getstatus'>Network status</a><a href='/setup'>WiFi/Network Setup</a></div>
-<div class='b'><h2>RFD900x Setup Wizard</h2><p>The wizard allows you the adjust internal and remote long-range radios settings.</p><a href='/wiz.htm'>Go to First Run Wizard!</a></div></div>
-<div class='cl h ct'><div class='b'><h2>Documentation</h2><p>Requires internet access</p><a href='http://ardupilot.org'>ArduPilot Website</a><a href='http://ardupilot.org/copter/docs/common-esp8266-telemetry.html'>ESP8266 WiFi Documentation</a><a href='https://github.com/RFDesign/mavesp8266'>TXMOD ESP8266 Source Code</a><a href='http://files.rfdesign.com.au/firmware/'>TXMOD Firmware Updates</a></div>
-<div class='b'><h2>Advanced options</h2><a href='/plist'>RFD900x Radio Settings</a><a href='/updatepage'>Update Firmware</a><a href='/edit'>View and edit <!-- some --> files in the SPIFFS filesystem</a></div>
-</div></body></html>)V0G0N";*/
-
 const char PROGMEM embbeded_index_minimal[] = R"V0G0N(
 <!DOCTYPE html><html><head><title>TXMOD</title><meta name='viewport' content='initial-scale=1.0'><meta charset='utf-8'><style>
 body{max-width:800px;width:90%;background-color:#f1f1f1;font-family:Verdana;margin:20px auto}h1,h2,p{font-weight:normal}h2{font-size:20px;margin:0 0 15px 0;width:100%}
@@ -370,7 +358,6 @@ static void handle_root()
     String rem_rfd_sw_ver = "";
     String realSizeMB = "";
     String mac_s;
-    String realSize;
     extern bool tcp_passthrumode;
     extern IPAddress localIP;
 
@@ -422,7 +409,7 @@ static void handle_root()
         device_info += "Build date: <i>" + String(BUILD_DATE_STRING) + " " + String(BUILD_TIME_STRING) + "</i><br/>";
         device_info += "Internal modem version: <i style=\"font-size:10px\">" + int_rfd_sw_ver + "</i><br/>";
         device_info += "Remote modem version: <i style=\"font-size:10px\">" + rem_rfd_sw_ver + "</i><br/>";
-        device_info += "Flash-Size: <i>" + realSizeMB + "</i><br/>";
+        device_info += "Flash size: <i>" + realSizeMB + "</i><br/>";
         device_info += "Up time: <i>" + up_time_str + "</i></p>";
 
     String op_mode = tcp_passthrumode ? "TCP port 23" : "UDP port " + String(getWorld()->getParameters()->getWifiUdpHport());

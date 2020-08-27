@@ -359,44 +359,32 @@ bool tcp_check() {
     return false;  // if compiled without tcp, always return false.
 } 
 
-
 void handle_tcp_and_serial_passthrough() {
 
     #ifdef PROTOCOL_TCP
 
-      if ( millis() > msecs_counter +1000 ) { 
-        msecs_counter = millis(); 
-        secs++;
+        if ( millis() > msecs_counter +1000 ) { 
+            msecs_counter = millis(); 
+            secs++;
 
-        /*debug_serial_println(F("stats:"));
-        debug_serial_print(F("serial in:")); debug_serial_println(stats_serial_in);
-        debug_serial_print(F("tcp in   :")); debug_serial_println(stats_tcp_in);
-        debug_serial_print(F("ser pkts :")); debug_serial_println(stats_serial_pkts);
-        debug_serial_print(F("tcp pkts :")); debug_serial_println(stats_tcp_pkts);    
-
-        debug_serial_print(F("largest serial pkt:")); debug_serial_println(largest_serial_packet);    
-        debug_serial_print(F("largest tcp pkt:")); debug_serial_println(largest_tcp_packet);    
-
-
-        debug_serial_println(F("----------------------------------------------"));*/
-        stats_serial_in=0;
-        stats_tcp_in=0;
-        stats_serial_pkts=0;
-        stats_tcp_pkts=0;
-      }
-
-      if(int avail = tcpclient.available()) {
-        int bytes_read = 0;
-        for (int i = 0; (i < avail) && (i < max_tcp_size); i++) {
-            buf[i] = (char)tcpclient.read(); // read char from UART
-            stats_tcp_in++;
-            bytes_read++;
+            stats_serial_in=0;
+            stats_tcp_in=0;
+            stats_serial_pkts=0;
+            stats_tcp_pkts=0;
         }
 
-        Serial.write(buf, bytes_read); 
-        stats_serial_pkts++; 
-        if ( avail > largest_tcp_packet ) largest_tcp_packet = avail;
-      }
+        if(int avail = tcpclient.available()) {
+            int bytes_read = 0;
+            for (int i = 0; (i < avail) && (i < max_tcp_size); i++) {
+                buf[i] = (char)tcpclient.read(); // read char from UART
+                stats_tcp_in++;
+                bytes_read++;
+            }
+
+            Serial.write(buf, bytes_read); 
+            stats_serial_pkts++; 
+            if ( avail > largest_tcp_packet ) largest_tcp_packet = avail;
+        }
 
         if(int avail = Serial.available()) {
             int bytes_read = 0;
@@ -429,7 +417,7 @@ void force_heartbeats(){
             uint8_t autopilot = MAV_AUTOPILOT_GENERIC;
             uint8_t basemode = 0;
             uint8_t custommode = 0;
-            uint8_t systemstatus = MAV_STATE_STANDBY;
+            uint8_t systemstatus = MAV_STATE_ACTIVE;
 
             mavlink_msg_heartbeat_pack(system_id, component_id, &heartbeat, type, autopilot, 
                 basemode, custommode, systemstatus);
@@ -443,6 +431,7 @@ void force_heartbeats(){
 
 void force_vehicle_datastream(){
     static bool sent_once = false;
+    static uint32_t last_sent = 0;
     
     if (sent_once) {
         if (!Vehicle.heardFrom())
@@ -454,7 +443,7 @@ void force_vehicle_datastream(){
         return;
     }
     
-    if (!GCS.heardFrom()) 
+    if (millis() - last_sent > 1000)
     {
         // PARAM_SET messages initiate data flow
         mavlink_message_t param_set;
@@ -483,6 +472,7 @@ void force_vehicle_datastream(){
             Vehicle.sendMessage(&param_set);
         }
 
+        last_sent = millis();
         sent_once = true;
     }
 }
