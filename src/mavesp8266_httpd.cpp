@@ -357,7 +357,6 @@ static void handle_root()
     String int_rfd_sw_ver = "";
     String rem_rfd_sw_ver = "";
     String realSizeMB = "";
-    String mac_s;
     extern bool tcp_passthrumode;
     extern IPAddress localIP;
 
@@ -1361,6 +1360,7 @@ static void handle_reboot()
     setNoCacheHeaders();
     webServer.send(200, FPSTR(kTEXTHTML), message);
     delay(500);
+    WiFi.mode(WIFI_OFF); //Gracefully turn off WiFi off
     ESP.restart();    
 }
 

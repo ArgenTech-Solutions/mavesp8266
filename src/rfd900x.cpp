@@ -1039,31 +1039,34 @@ void r900x_setup(bool reflash) { // if true. it will attempt to reflash ( and fa
 void r900x_attempt_factory_reset(void) {
     if (enter_command_mode_with_retries())
     {
-        int tries = 0;
-
-        do {
+        for (uint8_t tries = 0; tries < 5; tries++) {
+            bool success = false;
             debug_serial_println(F("attempting AT&F"));
             String factorycmd = "AT&F\r\n";
             Serial.write(factorycmd.c_str());
             Serial.flush(); // output buffer flush
             if (SmartSerial->expect("OK",250)) {
-                while (Serial.available() ) { Serial.read();  } // flush read buffer upto this point and discard
+                flush_rx_serial();
 
-                int tries_w = 0;
-                do {
+                for (uint8_t tries_w = 0; tries_w < 5; tries_w++) {
                     debug_serial_println(F("attempting AT&W"));
                     String factorycmd2 = "AT&W\r\n"; 
                     Serial.write(factorycmd2.c_str());
                     Serial.flush(); // output buffer flush
                     if (SmartSerial->expect("OK",250)) {
-                        tries_w = 5;
-                        tries = 5;
+                        flush_rx_serial();
+                        debug_serial_println(F("Sending ATZ"));
+                        String factorycmd2 = "ATZ\r\n"; 
+                        Serial.write(factorycmd2.c_str());
+                        Serial.flush(); // output buffer flush
+                        flush_rx_serial();
+                        success = true;
+                        break;
                     }
-                    while (Serial.available() ) { Serial.read();  } // flush read buffer upto this point and discard
-                    tries_w++;
-                } while (tries_w < 5);
-            }
-        tries++;
-        } while (tries < 5);
+                    flush_rx_serial();
+                }
+                if (success) break;
+            }            
+        } 
     }
 }
