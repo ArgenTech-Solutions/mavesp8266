@@ -1,9 +1,10 @@
 #include <Arduino.h>
 #include "led.h"
+#include "txmod_debug.h"
 
 // LED is on GPIO2, see also XModem.cpp, line 125
 //#define GPIO02  2
-#ifdef DEBUG_USE_SW_SERIAL
+#if (defined DEBUG_USE_SW_SERIAL) || (defined DEBUG_DISABLE)
 #define LEDGPIO 2
 #else
 #define LEDGPIO 16
