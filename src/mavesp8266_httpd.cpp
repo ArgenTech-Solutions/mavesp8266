@@ -871,6 +871,10 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
 		    return;
         }
 
+        //remove cached radio parameter files prior to factory-reset
+        SPIFFS.remove(RFD_REM_PAR);
+        SPIFFS.remove(RFD_LOC_PAR);
+
         // factory default the radio/s to (a) put them in a good state, and (b) clear any encryption key for later...
         // disable encryption via factory default and reboot
         retval = wiz_param_helper( "&F", "" , true); 
