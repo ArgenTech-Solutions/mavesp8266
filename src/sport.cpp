@@ -1546,6 +1546,7 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
           #endif              
             break; 
          case MAVLINK_MSG_ID_BATTERY_STATUS:      // #147   https://mavlink.io/en/messages/common.html
+          if (R2Gmsg.compid != MAV_COMP_ID_AUTOPILOT1) return; // we are only interested in the autopilot batteries
           ap_battery_id = mavlink_msg_battery_status_get_id(&R2Gmsg);  
           ap_current_battery = mavlink_msg_battery_status_get_current_battery(&R2Gmsg);      // in 10*milliamperes (1 = 10 milliampere)
           ap_current_consumed = mavlink_msg_battery_status_get_current_consumed(&R2Gmsg);    // mAh
@@ -1554,7 +1555,7 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
           if (ap_battery_id == 0) {  // Battery 1
             fr_bat1_mAh = ap_current_consumed;                       
           } else if (ap_battery_id == 1) {  // Battery 2
-              fr_bat2_mAh = ap_current_consumed;                              
+            fr_bat2_mAh = ap_current_consumed;                              
           } 
              
           #if defined Mav_Debug_All || defined Debug_Batteries
