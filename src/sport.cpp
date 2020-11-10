@@ -987,7 +987,7 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
     
         case MAVLINK_MSG_ID_HEARTBEAT:    // #0   http://mavlink.org/messages/common
           ap_type_tmp = mavlink_msg_heartbeat_get_type(&R2Gmsg);   // Alex - don't contaminate the ap-type variable
-          if (ap_type_tmp == 5 || ap_type_tmp == 6 || ap_type_tmp == 18 || ap_type_tmp == 26 || ap_type_tmp == 27 || ap_type_tmp == 30) break;      
+          if (ap_type_tmp == 5 || ap_type_tmp == 6 || ap_type_tmp == 18 || ap_type_tmp == 26 || ap_type_tmp == 27 || ap_type_tmp == 30 || ap_type_tmp == 0) break;      
           // Ignore heartbeats from GCS (6) or Ant Trackers(5) or ADSB (27))
           ap_type = ap_type_tmp;
           ap_autopilot = mavlink_msg_heartbeat_get_autopilot(&R2Gmsg);
