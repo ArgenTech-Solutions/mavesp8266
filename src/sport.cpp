@@ -1022,6 +1022,7 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
           
           break;
         case MAVLINK_MSG_ID_SYS_STATUS:   // #1
+          if (R2Gmsg.compid != MAV_COMP_ID_AUTOPILOT1) return; // we are only interested in the autopilot status
 
           ap_onboard_control_sensors_health = mavlink_msg_sys_status_get_onboard_control_sensors_health(&R2Gmsg);
           ap_voltage_battery1= Get_Volt_Average1(mavlink_msg_sys_status_get_voltage_battery(&R2Gmsg));        // 1000 = 1V  i.e mV
