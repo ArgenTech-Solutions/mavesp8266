@@ -19,6 +19,7 @@ File f; // global handle use for the Xmodem upload
 XModem xmodem(&Serial, ModeXModem);
 MySerial *SmartSerial = new MySerial(&Serial9x); 
 static uint8_t r9x_sensitivity = 94; // Defaults to -105dBm seen on 64kpbs datarates
+const char * rfd_sik_sig = "RFD SiK";
 
 void r900x_initiate_serials(void) {
     delay(100);
@@ -75,7 +76,7 @@ bool enter_command_mode() {
     Serial.flush(); // output buffer flush
     delay(100);
 
-    int already_commmand_mode_test = SmartSerial->expect_multi3("ATI","RFD SiK","RFD900X",250); // look for any of these
+    int already_commmand_mode_test = SmartSerial->expect_multi3("ATI", rfd_sik_sig, "RFD900X", 250); // look for any of these
 
     flush_rx_serial();
 
@@ -535,22 +536,6 @@ bool r900x_command_mode_sync() {
                 continue;
             } 
 
-/*            // this line *may* have started with 'RFD SiK' ( we matched on the SiK above), and end with '2.65 on RFD900X R1.3' 
-            String vers = "RFD SiK";
-            while (Serial.available() ) { char t = Serial.read();  debug_serial_print(t); vers += t; } // flush read buffer upto this point, displaying it for posterity ( it has version info )
-
-            if (vers.indexOf(" on ") > 10  ) { //"RFD SiK Q.QQ on RFDXXXX RZ.Z"
-                debug_serial_print(F("VERSION STRING FOUND:"));
-                debug_serial_println(vers);
-
-                // save version string to a file for later use by the webserver to present to the user.
-                File v = SPIFFS.open("/r900x_version.txt", "w"); 
-                v.print(vers);
-                v.close();
-            }
-*/
-
-
             debug_serial_println(F("\t\tSending AT&UPDATE to radio...\n"));
             //
             Serial.write("\r\n");
@@ -697,10 +682,11 @@ int r900x_getparams(String filename, bool factory_reset_first) {
     Serial.write(vercmd.c_str());
     Serial.flush(); // output buffer flush
 
-    String vers = "RFD SiK"; //starts with this...
-    bool ok = SmartSerial->expect_s(vers,1500);  // we really want to see 'RFD SiK' here, 
+    String vers; //starts with this...
+    bool ok = SmartSerial->expect_s(rfd_sik_sig,1500);  // we really want to see 'RFD SiK' here, 
 
     if ( ok ) { 
+        vers = rfd_sik_sig;
         delay(250);
         debug_serial_println(F("\tGOT SiK Response from radio.\n"));
 

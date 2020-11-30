@@ -695,7 +695,7 @@ void sport_loop() {
   }
 
   static uint32_t rssi_millis = 0;
-  bool rssiGood = (millis() - rs_millis) < 3000; // rssi should only be reported if has updated in the last 3s
+  bool rssiGood = (millis() - rs_millis) < 2000; // rssi should only be reported if has updated in the last 2 seconds
 
   if (rssiGood && (millis() - rssi_millis > 200)) {
     PackSensorTable(0xF101, 0);   // 0xF101 RSSI 
