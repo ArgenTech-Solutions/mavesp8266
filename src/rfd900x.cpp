@@ -683,7 +683,7 @@ int r900x_getparams(String filename, bool factory_reset_first) {
     Serial.flush(); // output buffer flush
 
     String vers; //starts with this...
-    bool ok = SmartSerial->expect_s(rfd_sik_sig,1500);  // we really want to see 'RFD SiK' here, 
+    bool ok = SmartSerial->expect(rfd_sik_sig,1500);  // we really want to see 'RFD SiK' here, 
 
     if ( ok ) { 
         vers = rfd_sik_sig;
