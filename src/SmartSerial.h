@@ -53,8 +53,8 @@ public:
                 offset = 0;
             }
             if (( finding==true ) && ( offset >= lookfor.length() )) { // we found the entire string, return immediately, dont wait for any more serial data or timeout
-                debug_serial_println("<--");
-                debug_serial_print("\nfound s:"+ lookfor); 
+                debug_serial_print("<--");
+                debug_serial_print(" found s:"+ return_val); 
                 debug_serial_print(" with len:"); debug_serial_print(offset);
                 debug_serial_print(" scanned:"); debug_serial_print(saw_any_data);
                 debug_serial_print(" ms:"); debug_serial_println(millis()-last_ms);
@@ -62,8 +62,8 @@ public:
             } 
         }
     }
-    debug_serial_println("!--");
-    debug_serial_print("\nNOT-found s:"+ lookfor); 
+    debug_serial_print("!--");
+    debug_serial_print(" NOT-found s:"+ lookfor); 
     debug_serial_print(" scanned:"); debug_serial_print(saw_any_data);
     debug_serial_print(" ms:"); debug_serial_println(millis()-last_ms);
     return return_val;
@@ -74,7 +74,7 @@ public:
     last_ms = millis();
     //bool found = false;
     // look for response, for max X milli seconds
-    debug_serial_println("e_waiting for s:"+ lookfor);
+    debug_serial_print("e_waiting for s:"+ lookfor);
     unsigned int offset = 0;
     bool finding = false; // are we part-way through a string match? 
     int rawcount = 0;
@@ -91,16 +91,16 @@ public:
                 offset = 0;
             }
             if (( finding==true ) && ( offset >= lookfor.length() )) { // we found the entire string, return immediately, dont wait for any more serial data or timeout
-                debug_serial_println("<--");
-                debug_serial_print("\nfound s:"+ lookfor); 
-                debug_serial_print(" with len:"); debug_serial_println(offset);
+                debug_serial_print("<--");
+                debug_serial_print(" found s:"+ lookfor); 
+                debug_serial_print(" with len:"); debug_serial_print(offset);
                 debug_serial_print(" ms:"); debug_serial_println(millis()-last_ms);
                 return true;
             } 
         }
     }
-    debug_serial_println("<--");
-    debug_serial_print(" raw bytes read:"); debug_serial_println(rawcount);
+    debug_serial_print("<--");
+    debug_serial_print(" raw bytes read:"); debug_serial_print(rawcount);
     debug_serial_print(" timeout ms:"); debug_serial_println(millis()-last_ms);
     return false;
   }
@@ -113,9 +113,9 @@ public:
     last_ms = millis();
     //bool found = false;
     // look for response, for max X milli seconds
-    debug_serial_println("3_wait for s1:"+ lookfor);
-    debug_serial_println("3_wait for s2:"+ lookfor2);
-    debug_serial_println("3_wait for s3:"+ lookfor3);
+    debug_serial_print("wait for s1:"+ lookfor);
+    debug_serial_print(" wait for s2:"+ lookfor2);
+    debug_serial_print(" wait for s3:"+ lookfor3);
     unsigned int offset = 0;
     unsigned int offset2 = 0;
     unsigned int offset3 = 0;
@@ -154,31 +154,31 @@ public:
             }
 
             if (( finding==true ) && ( offset >= lookfor.length() )) { // we found the entire string, return immediately, dont wait for any more serial data or timeout
-                debug_serial_println("<1--");
-                debug_serial_print("\nfound s1:"+ lookfor); 
+                debug_serial_print("<1--");
+                debug_serial_print(" found s1:"+ lookfor); 
                 debug_serial_print(" with l1:"); debug_serial_print(offset);
                 debug_serial_print(" ms:"); debug_serial_println(millis()-last_ms);
                 return 1;
             } 
 
             if (( finding2==true ) && ( offset2 >= lookfor2.length() )) { // we found the entire string, return immediately, dont wait for any more serial data or timeout
-                debug_serial_println("<2--");
-                debug_serial_print("\nfound s2:"+ lookfor2); 
+                debug_serial_print(" <2--");
+                debug_serial_print(" found s2:"+ lookfor2); 
                 debug_serial_print(" with l2:"); debug_serial_print(offset);
                 debug_serial_print(" ms:"); debug_serial_println(millis()-last_ms);
                 return 2;
             } 
 
             if (( finding3==true ) && ( offset3 >= lookfor3.length() )) { // we found the entire string, return immediately, dont wait for any more serial data or timeout
-                debug_serial_println("<3--");
-                debug_serial_print("\nfound s3:"+ lookfor3); 
+                debug_serial_print(" <3--");
+                debug_serial_print(" found s3:"+ lookfor3); 
                 debug_serial_print(" with l3:"); debug_serial_print(offset);
                 debug_serial_print(" ms:"); debug_serial_println(millis()-last_ms);
                 return 3;
             } 
         }
     }
-    debug_serial_println("<--");
+    debug_serial_print("<--");
     debug_serial_print("timeout ms:"); debug_serial_println(millis()-last_ms);
     return -1;
   }

@@ -991,6 +991,30 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
         // ... also , side effect, set ATS21=1 but ignore all its output and don't reboot.
         r900x_savesingle_param_and_verify_more("AT", PARAM_STATLED_STR, "1", false);
 
+        // find if remote end is an X2, if it is increase frame length
+        int val = r900x_readsingle_param("RT", "I4");
+        if (val >= 0) { // success
+          if(val >= 10) { // if the modem is a series 2 
+            int retval = wiz_param_helper( PARAM_FRAMELEN_STR, "4000" , true); //set the frame size higher on both ends and reboot
+            if(retval == 200 ){
+              delay(500);   // just did a reboot, so wait
+            } else {
+              if (retval == 201) {
+                message += "FAILED to set frame len on remote radio.";
+              } else if (retval == 202) {
+                message += "FAILED to set frame len177 on local radio.";
+              }
+              setNoCacheHeaders();
+              webServer.send(retval, FPSTR(kTEXTHTML), message);
+              return;
+            }
+          }
+        } else {  // failed to read the remote device board revision
+          message += "FAILED to read Board Rev on REMOTE 900x radio, RTI4";
+          setNoCacheHeaders();
+          webServer.send(retval, FPSTR(kTEXTHTML), message);
+          return;
+        }
 
         // activate remote 900x Network Channel (ID)  and verify  S3:NETID=
         retval =    r900x_savesingle_param_and_verify_more("RT", PARAM_RCOUT_STR, String(w4), true);
