@@ -14,6 +14,7 @@
 #include "rfd900x.h"
 #include "led.h"
 
+#define  PARAM_STATLED_STR "S21"
 HardwareSerial Serial9x(1); //  attached 900x device is on 'Serial' and instantiated as a Serial9x object. 
 File f; // global handle use for the Xmodem upload
 XModem xmodem(&Serial, ModeXModem);
@@ -71,7 +72,7 @@ bool enter_command_mode() {
     // version info, were already in command mode and don't have to wait a whone second to 
     // find out.
     //ATI
-    //RFD SiK 2.65 on RFD900X R1.3
+    //RFD SiK 3.48 on RFD900X
     Serial.write("\r\nATI\r\n");
     Serial.flush(); // output buffer flush
     delay(100);
@@ -83,16 +84,16 @@ bool enter_command_mode() {
     if (  already_commmand_mode_test <= 0 ) {  // no match on the above 3 strings means ...
 
         // put it into command mode first....
-        Serial.write("\r");
+        Serial.write("\r\n");
         Serial.flush();
-        delay(1010); 
+        delay(1050); 
         Serial.write("+++");
         Serial.flush(); // output buffer flush
 
         // toggle LED to be more interesting.
         toggle_led_state();
 
-        int ok2 = SmartSerial->expect_multi3("OK","+++","XXXXX",1100); // look for +++ takes 50ms, OK might take 1000 ?
+        int ok2 = SmartSerial->expect_multi3("OK","+++","XXXXX",1150); // look for +++ takes 50ms, OK might take 1000 ?
         if ( ok2 == 1 ) { 
             debug_serial_println(F("GOT OK Response from radio.\n"));
             flush_rx_serial();
@@ -101,8 +102,10 @@ bool enter_command_mode() {
         else if ( ok2 == 2 ) { 
             // if modem echo's back the +++ we sent it, we are already in command mode.
             debug_serial_println(F("radio is already_in_cmd_mode2, continuing... sending RN.\n"));
+            delay(100);
             Serial.write("\r\n"); // terminate the +++ command.
             Serial.flush(); // output buffer flush
+            delay(100);
             //flush_rx_serial();
             return true;
         } else { 
@@ -556,10 +559,12 @@ bool r900x_command_mode_sync() {
 // returns -1 on major error, positive number of params fetched on 'success'
 int r900x_getparams(String filename, bool factory_reset_first) { 
 
-    debug_serial_println(F("r900x_getparams()- START\n"));
-
+    debug_serial_print(F("r900x_getparams("));
+    debug_serial_print(filename);
+    debug_serial_println(F(")- START"));
 
     debug_serial_println(F("b4\n"));
+    flush_rx_serial();
     if ( ! enter_command_mode_with_retries() ) { 
         debug_serial_println(F("failed\n"));
         return -1; 
@@ -570,7 +575,7 @@ int r900x_getparams(String filename, bool factory_reset_first) {
 
     delay(1500); // give a just booted radio tim to be ready.
 
-    Serial.write("\r"); // after +++ we need to clear the line before we set AT commands
+    Serial.write("\r\n"); // after +++ we need to clear the line before we set AT commands
     Serial.flush(); // output buffer flush
     delay(500); // give a just booted radio tim to be ready.
 
@@ -585,16 +590,18 @@ int r900x_getparams(String filename, bool factory_reset_first) {
         debug_serial_print(F("attempting factory reset.... &F and &W ... \n"));
 
         String factorycmd = prefix+"&F\r\n";
-        Serial9x.write(factorycmd.c_str());
-        Serial9x.flush(); // output buffer flush
-        bool b = SmartSerial->expect("OK",100); 
+        debug_serial_println(factorycmd);
+        Serial.write(factorycmd.c_str());
+        Serial.flush(); // output buffer flush
+        bool b = SmartSerial->expect("OK",200); 
         (void)b; // compiler unsed variable warning otherwise 
         flush_rx_serial();
 
         String factorycmd2 = prefix+"&W\r\n"; 
-        Serial9x.write(factorycmd2.c_str());
-        Serial9x.flush(); // output buffer flush
-        bool b2 = SmartSerial->expect("OK",100); 
+        debug_serial_println(factorycmd);
+        Serial.write(factorycmd2.c_str());
+        Serial.flush(); // output buffer flush
+        bool b2 = SmartSerial->expect("OK",200); 
         (void)b2; // compiler unsed variable warning otherwise 
         flush_rx_serial();
 
@@ -603,7 +610,7 @@ int r900x_getparams(String filename, bool factory_reset_first) {
 
     if (filename == RFD_LOC_PAR ) { 
 
-        r900x_savesingle_param_and_verify_more("AT", "S21", "1", false);
+        r900x_savesingle_param_and_verify_more("AT", PARAM_STATLED_STR, "1", false);
 
         int param_save_counter = 0;
         do {
@@ -633,12 +640,12 @@ int r900x_getparams(String filename, bool factory_reset_first) {
     // TODO get version info here from local and/or remote modem with an AT command
 
     // now get params list ATI5 or RTI5 as needed 
-    String cmd = prefix+"I5\r";
+    String cmd = prefix+"I5\r\n";
     Serial.write(cmd.c_str());
     Serial.flush(); // output buffer flush
     debug_serial_print(F("----------------------------------------------"));
     String data = SmartSerial->expect_s("HYSTERESIS_RSSI",1000); 
-    data += SmartSerial->expect_s("\r\n",100);
+    data += SmartSerial->expect_s("\r\n",200);
     while (Serial.available() ) { char t = Serial.read();  data += t; } // flush read buffer upto this point.
     debug_serial_print(data);
     debug_serial_print(F("----------------------------------------------"));

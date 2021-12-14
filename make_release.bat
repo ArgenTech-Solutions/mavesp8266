@@ -1,7 +1,7 @@
-@SET VERSION=V1.38
+@SET VERSION=V1.48
 
-del .pioenvs\esp12e\firmware.bin
-del .pioenvs\esp12e\spiffs.bin
+del .pio\build\esp12e\firmware.bin
+del .pio\build\esp12e\spiffs.bin
 del firmware.bin
 del spiffs.bin
 
@@ -11,11 +11,12 @@ platformio run
 platformio run -t buildfs
 
 @REM copy the target binaries to a releasable name:
-copy .pioenvs\esp12e\spiffs.bin .
+copy .pio\build\esp12e\spiffs.bin .
 rename spiffs.bin RFDTxMod-%VERSION%.4m.spiffs.bin
-copy .pioenvs\esp12e\firmware.bin .
+copy .pio\build\esp12e\firmware.bin .
 rename firmware.bin RFDTxMod-%VERSION%.4m.bin
 
 echo ------------------------------------------------------------------
 @REM show user:
 @dir RFDTx*.bin
+pause
