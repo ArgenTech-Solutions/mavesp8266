@@ -1,4 +1,4 @@
-@SET VERSION=V1.48
+@SET VERSION=V2.00
 
 del .pio\build\esp12e\firmware.bin
 del .pio\build\esp12e\spiffs.bin

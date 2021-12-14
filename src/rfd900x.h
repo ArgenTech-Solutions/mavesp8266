@@ -6,6 +6,16 @@
 // platformio doesn't seem to have F(), but has FPSTR and PSTR
 #define F(string_literal) (FPSTR(PSTR(string_literal)))
 
+// define where parameters are instead of putting randing numbers everywhere meaning nothing
+#define  PARAM_FORMAT_STR   "S0"
+#define  PARAM_NETID_STR    "S3"
+#define  PARAM_ENCRYPT_STR  "S15"
+#define  PARAM_RCIN_STR     "S16"
+#define  PARAM_RCOUT_STR    "S17"
+#define  PARAM_STATLED_STR  "S21"
+#define  PARAM_FRAMELEN_STR "S26"
+
+
 void r900x_initiate_serials(void);
 void r900x_setup(bool reflash);
 void r900x_attempt_factory_reset(void);

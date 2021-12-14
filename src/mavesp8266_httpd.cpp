@@ -838,7 +838,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
         //ok = true;
 
         // test if the remote radio is present by trying to read a parameter from it...
-        int val = r900x_readsingle_param("RT", "S0");
+        int val = r900x_readsingle_param("RT", PARAM_FORMAT_STR);
         int retval = 200; // 200=success, 201 = fail.
         if (val >= 35) { // success
             message = "SUCCESS param reading from REMOTE 900x radio. RT S0->"+String(val);
@@ -858,7 +858,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
         String Sw1 = String(w1);
 
         // disable encryption first and reboot 
-        int retval = wiz_param_helper( "S15", "0" , true); 
+        int retval = wiz_param_helper( PARAM_ENCRYPT_STR, "0" , true); 
 		delay(500);
         if (retval != 200 ) {
             if (retval == 201) {
@@ -890,7 +890,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
 		    return;
         }
 
-        retval = r900x_savesingle_param_and_verify_more("AT", "S21", "1", true);
+        retval = r900x_savesingle_param_and_verify_more("AT", PARAM_STATLED_STR, "1", true);
 		delay(250);
         if (retval <= 0) {
             message += "FAILED to set local radio ATS21 to 1";
@@ -900,7 +900,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
         }
 
 		// after a factory-default, THEN set the netid in both radio/s as the first step in the process.
-        wiz_param_saver( "S3", Sw1 ); // non-returning, emits http response, saves and reboots radios after
+        wiz_param_saver( PARAM_NETID_STR, Sw1 ); // non-returning, emits http response, saves and reboots radios after
         
     }
 
@@ -916,7 +916,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
         //int retval3 = -1;
 
         // first test if the remote radio is present by trying to read a parameter from it...
-        int val = r900x_readsingle_param("RT", "S0");
+        int val = r900x_readsingle_param("RT", PARAM_FORMAT_STR);
         bool linktest = false;
         if (val >= 35) { // success
             //message = "remote link tested OK";
@@ -932,7 +932,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
             // disable encryption
             if ( EE == 0 ){ 
 
-                   wiz_param_saver( "S15", "0" ); // non-returning, emits http response, saves and reboots radios after
+                   wiz_param_saver( PARAM_ENCRYPT_STR, "0" ); // non-returning, emits http response, saves and reboots radios after
             }
 
             // enable encryption - warning, a prerequisite to this succeeding is that u MUST have disabled 
@@ -949,7 +949,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
                      debug_serial_println("Wrote Enc Key to /key.txt");
 
                     // enable encryption first but don't reboot
-                    retval = wiz_param_helper( "S15", "1" , false); 
+                    retval = wiz_param_helper( PARAM_ENCRYPT_STR, "1" , false); 
                     if (retval != 200 ) {
                         message += "FAILED to set S15=1 on one or more of the radios.";
                     }
@@ -989,10 +989,11 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
         //ATS21=1 
 
         // ... also , side effect, set ATS21=1 but ignore all its output and don't reboot.
-        r900x_savesingle_param_and_verify_more("AT", "S21", "1", false);
+        r900x_savesingle_param_and_verify_more("AT", PARAM_STATLED_STR, "1", false);
+
 
         // activate remote 900x Network Channel (ID)  and verify  S3:NETID=
-        retval =    r900x_savesingle_param_and_verify_more("RT", "S17", String(w4), true);
+        retval =    r900x_savesingle_param_and_verify_more("RT", PARAM_RCOUT_STR, String(w4), true);
         if ( retval < 0 ) {  //if remote verified, then activate local 900x Network Channel (ID)  and verify
                 message += "FAILED param saving to REMOTE 900x radio. RT S17->"+String(w4);
                 setNoCacheHeaders();
@@ -1001,10 +1002,10 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
                 return;
         }
 
-        retval2 = r900x_savesingle_param_and_verify_more("AT", "S16", String(w3), true);
+        retval2 = r900x_savesingle_param_and_verify_more("AT", PARAM_RCIN_STR, String(w3), true);
         // if it failed, retry, because the remote already succeeded and the local should too.
         if ( retval2 < 0 ) { 
-        retval2 = r900x_savesingle_param_and_verify_more("AT", "S16", String(w3), true);
+        retval2 = r900x_savesingle_param_and_verify_more("AT", PARAM_RCIN_STR, String(w3), true);
         }
         if ( retval2 < 0 ) {  //if remote verified, then activate local 900x Network Channel (ID)  and verify
                 message += "FAILED param saving to LOCAL 900x radio. AT S16->"+String(w3);
@@ -1109,10 +1110,10 @@ void handle_test_save() // accept updated param/s via POST, save them, then disp
         //ok = true;
 
         // activate remote 900x Network Channel (ID)  and verify  S3:NETID=
-        int retval =    r900x_savesingle_param_and_verify_more("AT", "S3", "88", true);
+        int retval =    r900x_savesingle_param_and_verify_more("AT", PARAM_NETID_STR, "88", true);
         if ( retval < 0 ) {  //if remote verified, then activate local 900x Network Channel (ID)  and verify
             // try again
-            retval =    r900x_savesingle_param_and_verify_more("AT", "S3", "88", true);
+            retval =    r900x_savesingle_param_and_verify_more("AT", PARAM_NETID_STR, "88", true);
             if (retval < 0)
             {
                 message += "FAILED param saving to local 900x radio. ATS3->88";
@@ -1124,7 +1125,7 @@ void handle_test_save() // accept updated param/s via POST, save them, then disp
         }
 
         // test if the remote radio is present by trying to read a parameter from it...
-        int val = r900x_readsingle_param("RT", "S0");
+        int val = r900x_readsingle_param("RT", PARAM_FORMAT_STR);
         retval = 200; // 200=success, 201 = fail.
         if (val >= 35) { // success
             message = "SUCCESS param reading from REMOTE 900x radio. RT S0->"+String(val);
@@ -1143,12 +1144,12 @@ void handle_test_save() // accept updated param/s via POST, save them, then disp
         int retval2 = -1;
 
         // ... also , side effect, set ATS21=1 but ignore all its output and don't reboot.
-        r900x_savesingle_param_and_verify_more("AT", "S21", "1", false);
+        r900x_savesingle_param_and_verify_more("AT", PARAM_STATLED_STR, "1", false);
 
-        retval2 = r900x_savesingle_param_and_verify_more("AT", "S16", "1", true);
+        retval2 = r900x_savesingle_param_and_verify_more("AT", PARAM_RCIN_STR, "1", true);
         // if it failed, retry, because the remote already succeeded and the local should too.
         if ( retval2 < 0 ) { 
-        retval2 = r900x_savesingle_param_and_verify_more("AT", "S16", "1", true);
+        retval2 = r900x_savesingle_param_and_verify_more("AT", PARAM_RCIN_STR, "1", true);
         }
         if ( retval2 < 0 ) {  //if remote verified, then activate local 900x Network Channel (ID)  and verify
                 message += "FAILED param saving to LOCAL 900x radio. AT S16->1";

@@ -14,7 +14,6 @@
 #include "rfd900x.h"
 #include "led.h"
 
-#define  PARAM_STATLED_STR "S21"
 HardwareSerial Serial9x(1); //  attached 900x device is on 'Serial' and instantiated as a Serial9x object. 
 File f; // global handle use for the Xmodem upload
 XModem xmodem(&Serial, ModeXModem);
@@ -72,12 +71,12 @@ bool enter_command_mode() {
     // version info, were already in command mode and don't have to wait a whone second to 
     // find out.
     //ATI
-    //RFD SiK 3.48 on RFD900X
+    //RFD SiK 3.48 on RFD900X2
     Serial.write("\r\nATI\r\n");
     Serial.flush(); // output buffer flush
     delay(100);
 
-    int already_commmand_mode_test = SmartSerial->expect_multi3("ATI", rfd_sik_sig, "RFD900X", 250); // look for any of these
+    int already_commmand_mode_test = SmartSerial->expect_multi3("ATI", rfd_sik_sig, "RFD900X2", 250); // look for any of these
 
     flush_rx_serial();
 
@@ -428,7 +427,7 @@ debug_serial_println(F("r900x_saveparams()\n"));
         String ParamVAL = line.substring(equals_offset+1,eol_offset); 
 
         // if its an ATS2 or RTS0 command, skipp it, as we don't allows writes to S0
-        if ( ParamID == F("S0") ) { 
+        if ( ParamID == F(PARAM_FORMAT_STR) ) { 
             debug_serial_println(F("skipping S0, as we don't write it."));
             continue; 
         }
@@ -942,10 +941,11 @@ void r900x_setup(bool reflash) { // if true. it will attempt to reflash ( and fa
         // if we already saw ChipID or UPLOAD output, don't try to do 
         if ( result == 9 ) {
             Serial.begin(57600);
-            Serial.write("U"); // AUTO BAUD RATE CODE EXPECTS THIS As the first byte sent to the bootloader, not even \r or \n should be sent earlier
+            //Serial.write("U"); // AUTO BAUD RATE CODE EXPECTS THIS As the first byte sent to the bootloader, not even \r or \n should be sent earlier
+            Serial.write("\r\n");
             Serial.flush();
 
-            bool ok = SmartSerial->expect("ChipID:",2000);  // response to 'U' is the long string including chipid
+            bool ok = SmartSerial->expect("RFD900xSub:2",2000);  // response to 'U' is the long string including chipid
             // todo handle this return value. 
             //for now just to stop compilter warning:
             ok = !ok;
@@ -958,7 +958,7 @@ void r900x_setup(bool reflash) { // if true. it will attempt to reflash ( and fa
         // UPLOAD COMMAND EXPECTS 'Ready' string
         debug_serial_println(F("\t\tsending 'UPLOAD'\r\n"));
         //
-        Serial.write("UPLOAD\r");
+        Serial.write("UPLOAD\r\n");
         Serial.flush(); // output buffer flush
 
         // we really MUST see Ready here
