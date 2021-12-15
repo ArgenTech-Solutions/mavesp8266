@@ -14,6 +14,7 @@
 #define  PARAM_RCOUT_STR    "S17"
 #define  PARAM_STATLED_STR  "S21"
 #define  PARAM_FRAMELEN_STR "S26"
+#define  PARAM_AIR_SPEED_STR "S2"
 
 
 void r900x_initiate_serials(void);

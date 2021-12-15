@@ -859,7 +859,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
 
         // disable encryption first and reboot 
         int retval = wiz_param_helper( PARAM_ENCRYPT_STR, "0" , true); 
-		delay(500);
+		    delay(500);
         if (retval != 200 ) {
             if (retval == 201) {
                 message += "FAILED to set S15=0 on remote radio.";
@@ -878,7 +878,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
         // factory default the radio/s to (a) put them in a good state, and (b) clear any encryption key for later...
         // disable encryption via factory default and reboot
         retval = wiz_param_helper( "&F", "" , true); 
-		delay(250);
+		    delay(250);
         if (retval != 200) {        
             if (retval == 201) {
                 message += "FAILED to factory-default remote radio.";
@@ -891,7 +891,7 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
         }
 
         retval = r900x_savesingle_param_and_verify_more("AT", PARAM_STATLED_STR, "1", true);
-		delay(250);
+		    delay(250);
         if (retval <= 0) {
             message += "FAILED to set local radio ATS21 to 1";
 		    setNoCacheHeaders();
@@ -997,12 +997,12 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
           if(val >= 10) { // if the modem is a series 2 
             int retval = wiz_param_helper( PARAM_FRAMELEN_STR, "4000" , true); //set the frame size higher on both ends and reboot
             if(retval == 200 ){
-              delay(500);   // just did a reboot, so wait
+              delay(800);   // just did a reboot, so wait
             } else {
               if (retval == 201) {
                 message += "FAILED to set frame len on remote radio.";
               } else if (retval == 202) {
-                message += "FAILED to set frame len177 on local radio.";
+                message += "FAILED to set frame len on local radio.";
               }
               setNoCacheHeaders();
               webServer.send(retval, FPSTR(kTEXTHTML), message);
@@ -1011,6 +1011,21 @@ void handle_wiz_save() // accept updated param/s via POST, save them, then displ
           }
         } else {  // failed to read the remote device board revision
           message += "FAILED to read Board Rev on REMOTE 900x radio, RTI4";
+          setNoCacheHeaders();
+          webServer.send(retval, FPSTR(kTEXTHTML), message);
+          return;
+        }
+
+        // increase the data rate to 125 K to allow more bandwidth for ppm as it is struugling to get enough ppm streams through
+        retval = wiz_param_helper( PARAM_AIR_SPEED_STR, "125" , true); //set the frame size higher on both ends and reboot
+        if(retval == 200 ){
+          delay(600);   // just did a reboot, so wait
+        } else {
+          if (retval == 201) {
+            message += "FAILED to set air speed on remote radio.";
+          } else if (retval == 202) {
+            message += "FAILED to set air speed on local radio.";
+          }
           setNoCacheHeaders();
           webServer.send(retval, FPSTR(kTEXTHTML), message);
           return;
