@@ -1,4 +1,4 @@
-@SET VERSION=V2.00
+@SET VERSION=V2.10
 
 del .pio\build\esp12e\firmware.bin
 del .pio\build\esp12e\spiffs.bin
@@ -12,9 +12,9 @@ platformio run -t buildfs
 
 @REM copy the target binaries to a releasable name:
 copy .pio\build\esp12e\spiffs.bin .
-rename spiffs.bin RFDTxMod-%VERSION%.4m.spiffs.bin
+rename spiffs.bin RFDTxMod-v2_spiffs%VERSION%.bin
 copy .pio\build\esp12e\firmware.bin .
-rename firmware.bin RFDTxMod-%VERSION%.4m.bin
+rename firmware.bin RFDTxMod-v2_%VERSION%.bin
 
 echo ------------------------------------------------------------------
 @REM show user:

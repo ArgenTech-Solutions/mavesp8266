@@ -66,7 +66,7 @@ class MavESP8266GCS;
 //-- TODO: This needs to come from the build system
 // maybe like this: date +"%y %m%d %H%I"
 #define MAVESP8266_VERSION_MAJOR    2
-#define MAVESP8266_VERSION_MINOR    0
+#define MAVESP8266_VERSION_MINOR    1
 #define MAVESP8266_VERSION_BUILD    0
 #define MAVESP8266_VERSION          ((MAVESP8266_VERSION_MAJOR << 24) & 0xFF00000) | ((MAVESP8266_VERSION_MINOR << 16) & 0x00FF0000) | (MAVESP8266_VERSION_BUILD & 0xFFFF)
 
