@@ -32,8 +32,8 @@ button{width:200px}</style>
 <p><span class="att rd">ATTENTION</span> Ongoing radio communications will be lost during the update process.</p>
 <input type='file' name='spiffs' style="display:none" id="upload-spiffs" />
 <input type='file' name='update' style="display:none" id="upload-firmware" />
-<h3>Step 1 - Main controller</h3><p><button id="choose-firmware">Choose <i>firmware.bin</i></button> or something like <i>RFDTxMod-v2_V2.10.bin</i></p>
-<h3>Step 2 - SPIFFS file system</h3><p><button id="choose-spiffs">Choose <i>spiffs.bin</i></button> or something like <i>RFDTxMod-v2_spiffs353.bin.bin</i></p>
+<h3>Step 1 - Main controller</h3><p><button id="choose-firmware">Choose <i>firmware.bin</i></button> or something like <i>RFDTxMod-v2_V2.11.bin</i></p>
+<h3>Step 2 - SPIFFS file system</h3><p><button id="choose-spiffs">Choose <i>spiffs.bin</i></button> or something like <i>RFDTxMod-v2_spiffs356.bin</i></p>
 <div class="pr"><p class="gr" id="progressBar">0%</p></div>
 </div>
 <script>

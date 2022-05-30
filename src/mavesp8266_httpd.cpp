@@ -1149,13 +1149,27 @@ void handle_test_save() // accept updated param/s via POST, save them, then disp
         //ok = true;
 
         // activate remote 900x Network Channel (ID)  and verify  S3:NETID=
-        int retval =    r900x_savesingle_param_and_verify_more("AT", PARAM_NETID_STR, "88", true);
-        if ( retval < 0 ) {  //if remote verified, then activate local 900x Network Channel (ID)  and verify
-            // try again
-            retval =    r900x_savesingle_param_and_verify_more("AT", PARAM_NETID_STR, "88", true);
+        int retval =    r900x_savesingle_param_and_verify_more("AT", PARAM_NETID_STR, TEST_NETID_STR, true);
+        if ( retval < 0 ) {  //if local failed , try again 
+            retval =    r900x_savesingle_param_and_verify_more("AT", PARAM_NETID_STR, TEST_NETID_STR, true);
             if (retval < 0)
             {
-                message += "FAILED param saving to local 900x radio. ATS3->88";
+                message += "FAILED param saving to local 900x radio. AT";
+                message += PARAM_NETID_STR; message += "->"; message += TEST_NETID_STR;
+                setNoCacheHeaders();
+                debug_serial_println(message);
+                webServer.send(201, FPSTR(kTEXTHTML), message);
+                return;
+            }
+        }
+        // read min frequency from local radio
+        int MinFreq = r900x_readsingle_param("AT", PARAM_MINFREQ_STR);
+        if ( MinFreq < 0 ){  //if local failed, try again
+            MinFreq = r900x_readsingle_param("AT", PARAM_MINFREQ_STR);
+            if (MinFreq < 0)
+            {
+                message += "FAILED param reading from local 900x radio. AT";
+                message += PARAM_MINFREQ_STR ;
                 setNoCacheHeaders();
                 debug_serial_println(message);
                 webServer.send(201, FPSTR(kTEXTHTML), message);
@@ -1163,6 +1177,36 @@ void handle_test_save() // accept updated param/s via POST, save them, then disp
             }
         }
 
+        if (MinFreq >= 900000) { // if it is a 900 Mhz radio
+            // activate local 900x Min Freq and verify  S3:NETID=
+            retval =    r900x_savesingle_param_and_verify_more("AT", PARAM_MINFREQ_STR, TEST_MINFREQ_STR, true);
+            if ( retval < 0 ) {  //if local failed, try again
+                retval =    r900x_savesingle_param_and_verify_more("AT", PARAM_MINFREQ_STR, TEST_MINFREQ_STR, true);
+                if (retval < 0)
+                {
+                    message += "FAILED param saving to local 900x radio. AT";
+                    message += PARAM_MINFREQ_STR ;message += "->"; message += TEST_MINFREQ_STR;
+                    setNoCacheHeaders();
+                    debug_serial_println(message);
+                    webServer.send(201, FPSTR(kTEXTHTML), message);
+                    return;
+                }
+            }
+            // activate local 900x Min Freq and verify  S3:NETID=
+            retval =    r900x_savesingle_param_and_verify_more("AT", PARAM_MAXFREQ_STR, TEST_MAXFREQ_STR, true);
+            if ( retval < 0 ) {  //if local failed, try again
+                retval =    r900x_savesingle_param_and_verify_more("AT", PARAM_MAXFREQ_STR, TEST_MAXFREQ_STR, true);
+                if (retval < 0)
+                {
+                    message += "FAILED param saving to local 900x radio. AT";
+                    message += PARAM_MAXFREQ_STR ;message += "->"; message += TEST_MAXFREQ_STR;
+                    setNoCacheHeaders();
+                    debug_serial_println(message);
+                    webServer.send(201, FPSTR(kTEXTHTML), message);
+                    return;
+                }
+            }
+        }
         // test if the remote radio is present by trying to read a parameter from it...
         int val = r900x_readsingle_param("RT", PARAM_FORMAT_STR);
         retval = 200; // 200=success, 201 = fail.

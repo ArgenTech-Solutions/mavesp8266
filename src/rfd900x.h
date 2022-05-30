@@ -9,6 +9,8 @@
 // define where parameters are instead of putting randing numbers everywhere meaning nothing
 #define  PARAM_FORMAT_STR   "S0"
 #define  PARAM_NETID_STR    "S3"
+#define  PARAM_MINFREQ_STR  "S8"
+#define  PARAM_MAXFREQ_STR  "S9"
 #define  PARAM_ENCRYPT_STR  "S15"
 #define  PARAM_RCIN_STR     "S16"
 #define  PARAM_RCOUT_STR    "S17"
@@ -16,6 +18,9 @@
 #define  PARAM_FRAMELEN_STR "S26"
 #define  PARAM_AIR_SPEED_STR "S2"
 
+#define TEST_NETID_STR "88"
+#define TEST_MINFREQ_STR "902000"
+#define TEST_MAXFREQ_STR "908000"
 
 void r900x_initiate_serials(void);
 void r900x_setup(bool reflash);

@@ -336,7 +336,7 @@ int r900x_savesingle_param_and_verify_more(String prefix, String ParamID, String
 
             bool ok = SmartSerial->expect("OK",1000); 
             if ( ok ) { 
-                debug_serial_println(F("GOT OK Response from radio.\n"));
+                debug_serial_println(F(" GOT OK Response from radio.\n"));
                 //flush_rx_serial();
 
                 // save params AND take out of command mode via a quick reboot
@@ -565,7 +565,7 @@ int r900x_getparams(String filename, bool factory_reset_first) {
     debug_serial_print(F("r900x_getparams("));
     debug_serial_print(filename);
     debug_serial_print(F(")- START "));
-
+    
     debug_serial_print(F("b4 "));
     flush_rx_serial();
     if ( ! enter_command_mode_with_retries() ) { 

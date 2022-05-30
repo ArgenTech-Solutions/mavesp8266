@@ -78,7 +78,7 @@ public:
     unsigned int offset = 0;
     bool finding = false; // are we part-way through a string match? 
     int rawcount = 0;
-    debug_serial_print("-->");
+    debug_serial_print(" -->");
     while ((last_ms+wait_ms) > millis() )     {
         if ( Serial.available() ) {
             char c = Serial.read();  rawcount++;
@@ -179,7 +179,7 @@ public:
         }
     }
     debug_serial_print("<--");
-    debug_serial_print("timeout ms:"); debug_serial_println(millis()-last_ms);
+    debug_serial_print(" timeout ms:"); debug_serial_println(millis()-last_ms);
     return -1;
   }
 
