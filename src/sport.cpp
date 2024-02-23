@@ -1502,7 +1502,7 @@ void DecodeOneMavFrame(mavlink_message_t R2Gmsg) {
         }
         case MAVLINK_MSG_ID_RADIO_STATUS:         // #109
         {
-            uint8_t ap_rssi109 = mavlink_msg_radio_status_get_rssi(&R2Gmsg);         // air signal strength
+            uint8_t ap_rssi109 = mavlink_msg_radio_status_get_remrssi(&R2Gmsg);         // air signal strength
             if (!ap_rssi109) return; // this means the internal RFD900x is purely responding to heartbeats, but not linked to anything
               
             // If we get #109 then it must be a SiK fw radio, so use this record for rssi
