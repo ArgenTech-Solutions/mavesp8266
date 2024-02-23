@@ -737,17 +737,24 @@ int r900x_getparams(String filename, bool factory_reset_first) {
 // Converts the RSSI figure incomming from a MAV message ID 109
 // to a figure that represents link quality in percentage
 uint8_t r900x_rssi_percentage(uint8_t mav_rssi_109) {
-    uint16_t res;
+    int16_t res;
     
     if (mav_rssi_109 == 255) // MAV value that corresponsds to invalid/unknown
     {
         res = 0;
     } else if (mav_rssi_109 >= r9x_sensitivity + 20) {
-        res = 99;
+        res = 9 * (mav_rssi_109 - r9x_sensitivity - 20);
+        res /= (206 - r9x_sensitivity - 20);
+        res += 90;
+        // Clamp to 99%
+        if (res >= 99) res = 99;
     } else {
-        res = 100 * (mav_rssi_109 - r9x_sensitivity);
-        res /= 20;
+        res = 90 * (mav_rssi_109 - r9x_sensitivity);
+        res /= 20; 
+        // Clamp to 1%
+        if (res <= 1) res = 1;
     }
+    
 
     //debug_serial_println("rssi_reported:" + String(mav_rssi_109));
     delay(0);
