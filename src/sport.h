@@ -24,7 +24,7 @@ void sport_handle_mavlink(mavlink_message_t * msg);
 #define frBaud                 57600    // S.Port baud setting - default 57600 
 
 // Do not enable for FlightDeck
-//#define PlusVersion  // Added support for 0x5009 Mission WPs, 0x50F1 Servo_Channels, 0x50F2 VFR_Hud
+#define PlusVersion  // Added support for 0x5009 Mission WPs, 0x50F1 Servo_Channels, 0x50F2 VFR_Hud
 
 //=================================================================================================
 //           D E F A U L T   T R A N S L A T I O N   M O D E   S E T T I N G S   
